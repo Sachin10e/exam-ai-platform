@@ -25,7 +25,8 @@ function chunkText(text, size = 800) {
 }
 
 async function generateEmbedding(text) {
-  const res = await axios.post('http://localhost:11434/api/embeddings', {
+  const ollamaUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434'
+  const res = await axios.post(`${ollamaUrl}/api/embeddings`, {
     model: 'nomic-embed-text',
     prompt: text,
   })
@@ -38,55 +39,88 @@ async function processFile() {
     const buffer = fs.readFileSync(filePath)
 
     console.log('Extracting text...')
-    const data = await pdfParse(buffer)
-    const fullText = data.text
+    const pdfData = await pdfParse(buffer)
+    const fullText = pdfData.text
 
-    const subjectName = filePath.split('/').pop().replace('.pdf', '')
+    const fileName = filePath.split('/').pop()
+    const subjectName = fileName.replace('.pdf', '')
 
-    console.log('Inserting subject...')
-    const { data: subject, error: subjectError } = await supabase
+    console.log('Checking for existing subject...')
+    // Check if subject already exists
+    const { data: existing, error: existingError } = await supabase
       .from('subjects')
-      .insert({ name: subjectName })
-      .select()
+      .select('*')
+      .eq('name', subjectName)
       .single()
 
-    if (subjectError) throw subjectError
+    let subjectId
+    let subjectData
+    let subjectError
+
+    if (existing) {
+      subjectId = existing.id
+      subjectData = existing
+    } else {
+      console.log('Inserting new subject...')
+      const insertResp = await supabase
+        .from('subjects')
+        .insert([{ name: subjectName }])
+        .select()
+        .single()
+      subjectData = insertResp.data
+      subjectError = insertResp.error
+      if (subjectError) {
+        console.error('Subject insert error:', subjectError)
+        process.exit(1)
+      }
+      subjectId = subjectData.id
+    }
+
+    console.log('Subject ID:', subjectId)
 
     console.log('Inserting document...')
-    const { data: document, error: docError } = await supabase
+    const { data: docData, error: docError } = await supabase
       .from('documents')
-      .insert({
-        subject_id: subject.id,
-        filename: subjectName,
-        full_text: fullText,
-      })
+      .insert([{
+        subject_id: subjectId,
+        filename: fileName,
+        full_text: fullText
+      }])
       .select()
       .single()
 
-    if (docError) throw docError
+    if (docError) {
+      console.error('Document insert error:', docError)
+      process.exit(1)
+    }
 
     console.log('Chunking text...')
     const chunks = chunkText(fullText)
 
     console.log(`Generating embeddings for ${chunks.length} chunks...`)
 
-    for (const chunk of chunks) {
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i]
+
       const embedding = await generateEmbedding(chunk)
 
       const { error: chunkError } = await supabase
         .from('chunks')
-        .insert({
-          document_id: document.id,
+        .insert([{
+          subject_id: subjectId,
+          document_id: docData.id,
           content: chunk,
-          embedding,
-        })
+          embedding: embedding
+        }])
 
-      if (chunkError) throw chunkError
+      if (chunkError) {
+        console.error('Chunk insert error:', chunkError)
+      }
     }
 
     console.log('Processing complete')
   } catch (err) {
-    console.error('Worker failed:', err)
+    console.error('Processing failed:', err)
   }
 }
 

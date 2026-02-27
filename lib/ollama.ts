@@ -1,8 +1,9 @@
 import axios from 'axios'
 
 export async function generateEmbedding(text: string) {
+  const ollamaUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434'
   const response = await axios.post(
-    'http://localhost:11434/api/embeddings',
+    `${ollamaUrl}/api/embeddings`,
     {
       model: 'nomic-embed-text',
       prompt: text,
@@ -13,8 +14,9 @@ export async function generateEmbedding(text: string) {
 }
 
 export async function generateAnswer(prompt: string) {
+  const ollamaUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434'
   const response = await axios.post(
-    'http://localhost:11434/api/generate',
+    `${ollamaUrl}/api/generate`,
     {
       model: 'llama3:8b-instruct-q4_K_M',
       prompt,
