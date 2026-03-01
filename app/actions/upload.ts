@@ -113,9 +113,9 @@ export async function uploadPdfAction(formData: FormData) {
             let embedding;
             try {
                 embedding = await generateEmbedding(chunk)
-            } catch (embErr) {
+            } catch (embErr: any) {
                 console.error('Failed to generate embedding for chunk', embErr)
-                continue // Skip this chunk if Ollama fails
+                throw new Error(`Failed to generate Gemini embedding: ${embErr.message}`)
             }
 
             const { error: chunkError } = await serviceSupabase

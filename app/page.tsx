@@ -1,13 +1,18 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { uploadPdfAction } from './actions/upload'
 import { createSubjectAction } from './actions/subjects'
-import { BookOpen, CheckCircle, FileText, UploadCloud, BrainCircuit, MessageSquareText, FileQuestion, GraduationCap, File as FileIcon, Loader2, Sparkles, ChevronRight } from 'lucide-react'
+import { BookOpen, CheckCircle, FileText, UploadCloud, BrainCircuit, FileQuestion, GraduationCap, File as FileIcon, Loader2, Sparkles, ChevronRight, ArrowUp, ArrowDown } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import clsx from 'clsx'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
+import rehypeHighlight from 'rehype-highlight'
+import 'katex/dist/katex.min.css'
+import 'highlight.js/styles/atom-one-dark.css'
 
 type Message = {
   role: 'user' | 'assistant'
@@ -51,24 +56,26 @@ export default function ExamDashboard() {
 
   // Configuration State
   const [urgency, setUrgency] = useState<'Cram' | 'Deep'>('Cram')
-  const [examType, setExamType] = useState<'Internal' | 'Final'>('Final')
-  const [answerLength, setAnswerLength] = useState<'Short' | 'Long'>('Long')
-  const [targetGrade, setTargetGrade] = useState<'Pass' | 'Top'>('Top')
-  const [explanationStyle, setExplanationStyle] = useState<'Academic' | 'Simplified'>('Academic')
+  const [examType, setExamType] = useState<'Internal' | 'Final'>('Internal')
+  const [answerLength, setAnswerLength] = useState<'Short' | 'Long'>('Short')
+  const [targetGrade, setTargetGrade] = useState<'Pass' | 'Top'>('Pass')
+  const [explanationStyle, setExplanationStyle] = useState<'Academic' | 'Simplified'>('Simplified')
   const [isGenerating, setIsGenerating] = useState(false)
   const [loadingStepIndex, setLoadingStepIndex] = useState(0)
 
-  // Output State
-  const [activeTab, setActiveTab] = useState<'Hitlist' | 'Summaries' | 'Flashcards'>('Hitlist')
-  const [plan, setPlan] = useState<GeneratedPlan>(null)
-  const [memorizedQs, setMemorizedQs] = useState<Set<number>>(new Set())
-
-  // Sidekick Chat State
-  const [chatOpen, setChatOpen] = useState(false)
+  // Output & Chat State
   const [messages, setMessages] = useState<Message[]>([])
+  const [hasGenerated, setHasGenerated] = useState(false)
   const [chatInput, setChatInput] = useState('')
   const [isChatLoading, setIsChatLoading] = useState(false)
+  const [targetUnit, setTargetUnit] = useState<number>(1)
+  const [showBackToTop, setShowBackToTop] = useState(false)
+  const [scrollDirection, setScrollDirection] = useState<'up' | 'down'>('up')
+  const [isScrolling, setIsScrolling] = useState(false)
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const lastScrollTopRef = useRef<number>(0)
   const endOfMessagesRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     async function initSubject() {
@@ -83,8 +90,11 @@ export default function ExamDashboard() {
   }, [])
 
   useEffect(() => {
-    if (chatOpen) endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, chatOpen])
+    // Only auto-scroll to the bottom when explicitly loading manual chat messages, avoiding yanking during syllabus generation.
+    if (isChatLoading) {
+      endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [messages, isChatLoading])
 
   useEffect(() => {
     let interval: NodeJS.Timeout
@@ -112,16 +122,16 @@ export default function ExamDashboard() {
 
         const data = await uploadPdfAction(formData)
         if (data.error) throw new Error(data.error)
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to upload', file.name, err)
-        alert(`Failed to process ${file.name}. Ensure Ollama is running.`)
+        alert(`Failed to process ${file.name}: ${err.message}`)
       }
     }
     setUploading(false)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  const generateStudyPlan = async () => {
+  const generateStudyPlan = async (isAppend = false) => {
     if (files.length === 0) {
       alert("Please upload at least one syllabus or PYQ document first.")
       return
@@ -129,18 +139,62 @@ export default function ExamDashboard() {
 
     setIsGenerating(true)
 
+    let newTargetUnit = targetUnit;
+    if (!isAppend) {
+      newTargetUnit = 1;
+      setTargetUnit(1);
+    } else {
+      newTargetUnit = targetUnit + 1;
+      setTargetUnit(newTargetUnit);
+    }
+
     try {
       const res = await fetch('/api/generate-plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subjectId, urgency, examType, answerLength, targetGrade, explanationStyle })
+        body: JSON.stringify({ subjectId, urgency, examType, answerLength, targetGrade, explanationStyle, isAppend, targetUnit: newTargetUnit })
       })
 
-      if (!res.ok) throw new Error('Failed to generate study plan')
+      if (!res.ok || !res.body) throw new Error('Failed to generate study plan')
 
-      const data = await res.json()
-      setPlan(data)
-      setMemorizedQs(new Set())
+      if (!isAppend) {
+        setMessages([
+          { role: 'assistant', content: '# 🎓 Survival Plan Generated\nI have analyzed your syllabus context. We are starting with **Unit 1**. You can ask me to explain any of these topics in deeper detail.' },
+          { role: 'assistant', content: '' }
+        ])
+      } else {
+        setMessages(prev => [...prev, { role: 'assistant', content: `\n\n---\n\n# 🚀 CONTINUING TO UNIT ${newTargetUnit}\n\n` }])
+      }
+      setHasGenerated(true)
+
+      const targetIdx = isAppend ? messages.length : 1;
+      setTimeout(() => {
+        document.getElementById(`message-${targetIdx}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 150)
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let accumulatedMessage = isAppend ? `\n\n---\n\n# 🚀 CONTINUING TO UNIT ${newTargetUnit}\n\n` : ''
+
+      while (true) {
+        const { value, done } = await reader.read()
+        if (done) break
+
+        const chunk = decoder.decode(value, { stream: true })
+        accumulatedMessage += chunk
+        setMessages(prev => {
+          const updated = [...prev]
+          let cleaned = accumulatedMessage;
+          // Gemini stubbornly tries to bold short answers in a thousand different ways. Strip them all dynamically:
+          cleaned = cleaned.replace(/\*\*(A|Answer|ANSWER):\*\*/gi, 'A:');
+          cleaned = cleaned.replace(/\*\*(A|Answer|ANSWER):/gi, 'A:');
+          cleaned = cleaned.replace(/(A|Answer|ANSWER):\s*\*\*(.*?)\*\*/gi, 'A: $2');
+          cleaned = cleaned.replace(/(A|Answer|ANSWER):\s*\*\*/gi, 'A: ');
+
+          updated[updated.length - 1].content = cleaned
+          return updated
+        })
+      }
 
     } catch (err: any) {
       console.error(err)
@@ -188,6 +242,36 @@ export default function ExamDashboard() {
       setMessages((prev) => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error.' }])
     }
     setIsChatLoading(false)
+  }
+
+  const handleScroll = () => {
+    if (!scrollContainerRef.current) return
+    const { scrollTop } = scrollContainerRef.current
+
+    if (scrollTop > lastScrollTopRef.current) {
+      setScrollDirection('down')
+    } else if (scrollTop < lastScrollTopRef.current) {
+      setScrollDirection('up')
+    }
+    lastScrollTopRef.current = scrollTop
+
+    setShowBackToTop(scrollTop > 500)
+    setIsScrolling(true)
+
+    if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current)
+    scrollTimeoutRef.current = setTimeout(() => {
+      setIsScrolling(false)
+    }, 1500)
+  }
+
+  const scrollToTargetUnit = () => {
+    // Scroll to the latest message which represents the current target unit.
+    const targetId = `message-${messages.length > 0 ? messages.length - 1 : 0}`
+    document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  const scrollToBottom = () => {
+    endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
   return (
@@ -246,42 +330,42 @@ export default function ExamDashboard() {
 
             <div className="space-y-5">
               <div>
-                <label className="text-xs text-slate-500 block mb-2 font-medium">Proximity / Urgency</label>
-                <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
-                  <button onClick={() => setUrgency('Cram')} className={clsx("flex-1 text-xs py-2 rounded-md font-semibold transition-all", urgency === 'Cram' ? "bg-slate-800 text-rose-400 shadow-sm" : "text-slate-500 hover:text-slate-300")}>Tomorrow</button>
-                  <button onClick={() => setUrgency('Deep')} className={clsx("flex-1 text-xs py-2 rounded-md font-semibold transition-all", urgency === 'Deep' ? "bg-slate-800 text-indigo-400 shadow-sm" : "text-slate-500 hover:text-slate-300")}>Deep Study</button>
+                <label className="text-xs text-slate-300 block mb-2 font-bold tracking-wide">Proximity / Urgency</label>
+                <div className="flex bg-slate-900/50 p-1 rounded-xl border border-slate-700/50">
+                  <button onClick={() => setUrgency('Cram')} className={clsx("flex-1 text-sm py-2.5 rounded-lg font-bold transition-all", urgency === 'Cram' ? "bg-rose-600 text-white shadow-lg scale-[1.02]" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50")}>Tomorrow</button>
+                  <button onClick={() => setUrgency('Deep')} className={clsx("flex-1 text-sm py-2.5 rounded-lg font-bold transition-all", urgency === 'Deep' ? "bg-indigo-600 text-white shadow-lg scale-[1.02]" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50")}>Deep Study</button>
                 </div>
               </div>
 
               <div>
-                <label className="text-xs text-slate-500 block mb-2 font-medium">Exam Standard</label>
-                <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
-                  <button onClick={() => setExamType('Internal')} className={clsx("flex-1 text-xs py-2 rounded-md font-semibold transition-all", examType === 'Internal' ? "bg-slate-800 text-slate-200 shadow-sm" : "text-slate-500 hover:text-slate-300")}>Internal/Mid</button>
-                  <button onClick={() => setExamType('Final')} className={clsx("flex-1 text-xs py-2 rounded-md font-semibold transition-all", examType === 'Final' ? "bg-slate-800 text-slate-200 shadow-sm" : "text-slate-500 hover:text-slate-300")}>University</button>
+                <label className="text-xs text-slate-300 block mb-2 font-bold tracking-wide">Exam Standard</label>
+                <div className="flex bg-slate-900/50 p-1 rounded-xl border border-slate-700/50">
+                  <button onClick={() => setExamType('Internal')} className={clsx("flex-1 text-sm py-2.5 rounded-lg font-bold transition-all", examType === 'Internal' ? "bg-emerald-600 text-white shadow-lg scale-[1.02]" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50")}>Internal/Mid</button>
+                  <button onClick={() => setExamType('Final')} className={clsx("flex-1 text-sm py-2.5 rounded-lg font-bold transition-all", examType === 'Final' ? "bg-indigo-600 text-white shadow-lg scale-[1.02]" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50")}>University</button>
                 </div>
               </div>
 
               <div>
-                <label className="text-xs text-slate-500 block mb-2 font-medium">Target Grade Strategy</label>
-                <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
-                  <button onClick={() => setTargetGrade('Pass')} className={clsx("flex-1 text-xs py-2 rounded-md font-semibold transition-all", targetGrade === 'Pass' ? "bg-slate-800 text-amber-400 shadow-sm" : "text-slate-500 hover:text-slate-300")}>Guaranteed Pass</button>
-                  <button onClick={() => setTargetGrade('Top')} className={clsx("flex-1 text-xs py-2 rounded-md font-semibold transition-all", targetGrade === 'Top' ? "bg-slate-800 text-indigo-400 shadow-sm" : "text-slate-500 hover:text-slate-300")}>Top Ranker (100%)</button>
+                <label className="text-xs text-slate-300 block mb-2 font-bold tracking-wide">Target Grade Strategy</label>
+                <div className="flex bg-slate-900/50 p-1 rounded-xl border border-slate-700/50">
+                  <button onClick={() => setTargetGrade('Pass')} className={clsx("flex-1 text-sm py-2.5 rounded-lg font-bold transition-all", targetGrade === 'Pass' ? "bg-amber-600 text-white shadow-lg scale-[1.02]" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50")}>Guaranteed Pass</button>
+                  <button onClick={() => setTargetGrade('Top')} className={clsx("flex-1 text-sm py-2.5 rounded-lg font-bold transition-all", targetGrade === 'Top' ? "bg-indigo-600 text-white shadow-lg scale-[1.02]" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50")}>Top Ranker (100%)</button>
                 </div>
               </div>
 
               <div>
-                <label className="text-xs text-slate-500 block mb-2 font-medium">Explanation Style</label>
-                <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
-                  <button onClick={() => setExplanationStyle('Simplified')} className={clsx("flex-1 text-xs py-2 rounded-md font-semibold transition-all", explanationStyle === 'Simplified' ? "bg-slate-800 text-emerald-400 shadow-sm" : "text-slate-500 hover:text-slate-300")}>ELI5 / Simple</button>
-                  <button onClick={() => setExplanationStyle('Academic')} className={clsx("flex-1 text-xs py-2 rounded-md font-semibold transition-all", explanationStyle === 'Academic' ? "bg-slate-800 text-indigo-400 shadow-sm" : "text-slate-500 hover:text-slate-300")}>Strict Academic</button>
+                <label className="text-xs text-slate-300 block mb-2 font-bold tracking-wide">Explanation Style</label>
+                <div className="flex bg-slate-900/50 p-1 rounded-xl border border-slate-700/50">
+                  <button onClick={() => setExplanationStyle('Simplified')} className={clsx("flex-1 text-sm py-2.5 rounded-lg font-bold transition-all", explanationStyle === 'Simplified' ? "bg-purple-600 text-white shadow-lg scale-[1.02]" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50")}>Simple Explanation</button>
+                  <button onClick={() => setExplanationStyle('Academic')} className={clsx("flex-1 text-sm py-2.5 rounded-lg font-bold transition-all", explanationStyle === 'Academic' ? "bg-indigo-600 text-white shadow-lg scale-[1.02]" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50")}>Strict Academic</button>
                 </div>
               </div>
 
               <div>
-                <label className="text-xs text-slate-500 block mb-2 font-medium">Output Depth (Speed)</label>
-                <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
-                  <button onClick={() => setAnswerLength('Short')} className={clsx("flex-1 text-xs py-2 rounded-md font-semibold transition-all", answerLength === 'Short' ? "bg-slate-800 text-emerald-400 shadow-sm" : "text-slate-500 hover:text-slate-300")}>Fast & Concise</button>
-                  <button onClick={() => setAnswerLength('Long')} className={clsx("flex-1 text-xs py-2 rounded-md font-semibold transition-all", answerLength === 'Long' ? "bg-slate-800 text-amber-400 shadow-sm" : "text-slate-500 hover:text-slate-300")}>10-Mark Detailed</button>
+                <label className="text-xs text-slate-300 block mb-2 font-bold tracking-wide">Output Depth (Speed)</label>
+                <div className="flex bg-slate-900/50 p-1 rounded-xl border border-slate-700/50">
+                  <button onClick={() => setAnswerLength('Short')} className={clsx("flex-1 text-sm py-2.5 rounded-lg font-bold transition-all", answerLength === 'Short' ? "bg-emerald-600 text-white shadow-lg scale-[1.02]" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50")}>Fast & Concise</button>
+                  <button onClick={() => setAnswerLength('Long')} className={clsx("flex-1 text-sm py-2.5 rounded-lg font-bold transition-all", answerLength === 'Long' ? "bg-amber-600 text-white shadow-lg scale-[1.02]" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50")}>10-Mark Detailed</button>
                 </div>
               </div>
             </div>
@@ -291,7 +375,7 @@ export default function ExamDashboard() {
         {/* Generate Button Fixed to Bottom */}
         <div className="pt-6 border-t border-slate-800 mt-2">
           <button
-            onClick={generateStudyPlan}
+            onClick={() => generateStudyPlan(false)}
             disabled={isGenerating || uploading}
             className="w-full relative overflow-hidden group py-3.5 px-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-500 transition-all focus:ring-4 focus:ring-indigo-500/20 disabled:opacity-50 disabled:grayscale flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(99,102,241,0.2)]"
           >
@@ -310,7 +394,7 @@ export default function ExamDashboard() {
 
         {/* Loading Overlay */}
         <AnimatePresence>
-          {isGenerating && (
+          {isGenerating && (messages.length === 0) && (
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm"
@@ -340,7 +424,7 @@ export default function ExamDashboard() {
           )}
         </AnimatePresence>
 
-        {!plan && !isGenerating ? (
+        {!hasGenerated && !isGenerating ? (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="h-full flex flex-col items-center justify-center text-center px-8 text-slate-500">
             <div className="w-24 h-24 mb-6 rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-center shadow-2xl">
               <GraduationCap className="w-12 h-12 text-slate-700" />
@@ -348,202 +432,160 @@ export default function ExamDashboard() {
             <h2 className="text-3xl font-bold text-slate-200 mb-3 tracking-tight">Arena Awaiting Context</h2>
             <p className="text-slate-400 max-w-md text-lg">Load your parameters on the left to synthesize the ultimate exam survival protocol.</p>
           </motion.div>
-        ) : plan ? (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 flex flex-col min-h-0">
-            {/* Tabs Header */}
-            <div className="border-b border-slate-800 px-8 pt-6 bg-slate-900/50 backdrop-blur-md sticky top-0 z-10">
-              <div className="flex gap-8">
-                {[
-                  { id: 'Hitlist', icon: FileQuestion, label: 'Expected Hitlist' },
-                  { id: 'Summaries', icon: BookOpen, label: 'Unit Summaries' },
-                  { id: 'Flashcards', icon: CheckCircle, label: 'Flashcards' }
-                ].map((tab) => {
-                  const Icon = tab.icon
-                  const isActive = activeTab === tab.id
-                  return (
+        ) : hasGenerated ? (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 flex flex-col min-h-0 relative">
+
+            {/* Header Area */}
+            <div className="border-b border-slate-800 px-8 py-6 bg-slate-900/50 backdrop-blur-md sticky top-0 z-20 flex justify-between items-center shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-1 bg-indigo-500 rounded-full"></div>
+                <h3 className="text-2xl font-bold text-slate-100 tracking-tight">Active Survival Plan</h3>
+              </div>
+            </div>
+
+            {/* Chat/Markdown Feed */}
+            <div
+              className="flex-1 overflow-y-auto px-6 py-12 md:px-12 scroll-smooth custom-scrollbar relative"
+              ref={scrollContainerRef}
+              onScroll={handleScroll}
+            >
+              <div className="max-w-4xl 2xl:max-w-5xl mx-auto pb-40 flex flex-col gap-10">
+                {messages.map((m, idx) => (
+                  <div key={idx} id={`message-${idx}`} className={clsx("flex font-sans", m.role === 'user' ? "justify-end" : "justify-start")}>
+                    {m.role === 'user' ? (
+                      <div className="max-w-[85%] bg-indigo-600 text-white p-5 rounded-3xl rounded-tr-sm shadow-md text-lg leading-relaxed antialiased ml-auto">
+                        {m.content}
+                      </div>
+                    ) : (
+                      <div className="w-full text-slate-200 antialiased flex flex-col gap-6">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm, remarkMath]}
+                          rehypePlugins={[rehypeKatex, rehypeHighlight]}
+                          components={{
+                            h1: ({ node, ...props }) => <h1 className="text-4xl md:text-5xl font-black text-slate-100 tracking-tight mt-12 mb-6 border-b border-slate-800 pb-4" {...props} />,
+                            h2: ({ node, ...props }) => <h2 className="text-2xl md:text-3xl font-bold text-slate-100 mt-10 mb-4" {...props} />,
+                            h3: ({ node, ...props }) => <h3 className="text-xl md:text-2xl font-bold text-slate-200 mt-10 mb-6 bg-slate-900/60 p-4 border-l-4 border-indigo-500 rounded-r-lg uppercase tracking-wider" {...props} />,
+                            h4: ({ node, ...props }) => <h4 className="text-xl md:text-[1.35rem] font-bold text-slate-100 mt-8 mb-3 tracking-tight" {...props} />,
+                            p: ({ node, ...props }) => <p className="text-lg md:text-[1.125rem] leading-[1.8] text-slate-300 md:mb-5 tracking-wide" {...props} />,
+                            ul: ({ node, ...props }) => <ul className="list-disc leading-[1.8] text-lg md:text-[1.125rem] pl-8 mb-6 space-y-3 text-slate-300" {...props} />,
+                            ol: ({ node, ...props }) => <ol className="list-decimal leading-[1.8] text-lg md:text-[1.125rem] pl-8 mb-6 space-y-3 text-slate-300" {...props} />,
+                            li: ({ node, ...props }) => <li className="pl-2" {...props} />,
+                            strong: ({ node, ...props }) => <strong className="font-bold text-white" {...props} />,
+                            a: ({ node, ...props }) => <a className="text-indigo-400 font-medium hover:text-indigo-300 hover:underline underline-offset-4 transition-colors" target="_blank" rel="noopener noreferrer" {...props} />,
+                            blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-slate-600 pl-4 italic text-slate-400 my-6 bg-slate-900/30 py-2 pr-4 rounded-r-lg" {...props} />,
+                            hr: ({ node, ...props }) => <hr className="border-slate-800 border-t-2 my-12" {...props} />,
+                            table: ({ node, ...props }) => (
+                              <div className="overflow-x-auto my-8 rounded-xl ring-1 ring-slate-700/50 bg-slate-900/20">
+                                <table className="w-full text-left border-collapse" {...props} />
+                              </div>
+                            ),
+                            thead: ({ node, ...props }) => <thead className="bg-slate-800/80 border-b border-slate-700 text-slate-300 text-sm uppercase tracking-wider" {...props} />,
+                            th: ({ node, ...props }) => <th className="px-6 py-4 font-bold" {...props} />,
+                            td: ({ node, ...props }) => <td className="px-6 py-4 border-b border-slate-800/50 text-slate-300 bg-slate-900/30" {...props} />,
+                            tr: ({ node, ...props }) => <tr className="hover:bg-slate-800/20 transition-colors" {...props} />,
+                            pre: ({ node, children, ...props }: any) => {
+                              let language = 'Code'
+                              const childArray = React.Children.toArray(children)
+                              const codeElement = childArray[0]
+                              if (React.isValidElement(codeElement)) {
+                                const childProps: any = codeElement.props || {}
+                                if (childProps.className) {
+                                  const match = /language-(\w+)/.exec(childProps.className)
+                                  if (match) language = match[1]
+                                }
+                                return (
+                                  <div className="my-8 rounded-xl overflow-hidden ring-1 ring-slate-700/50 shadow-2xl bg-[#0d1117]">
+                                    <div className="px-4 py-3 bg-slate-800/80 border-b border-slate-700/50 text-xs text-slate-400 font-mono uppercase flex justify-between items-center tracking-wider">
+                                      <span>{language}</span>
+                                    </div>
+                                    <pre className="p-5 overflow-x-auto text-[0.95rem] leading-relaxed" {...props}>
+                                      {React.cloneElement(codeElement, { 'data-block': true } as any)}
+                                    </pre>
+                                  </div>
+                                )
+                              }
+                              return <pre {...props}>{children}</pre>
+                            },
+                            code: ({ node, className, children, "data-block": isBlock, ...props }: any) => {
+                              if (isBlock || (className && className.includes('language-'))) {
+                                return <code className={className} {...props}>{children}</code>
+                              }
+                              return (
+                                <code className="bg-slate-800/80 text-indigo-300 px-2 py-1 rounded-md font-mono text-[0.9em] border border-slate-700/50" {...props}>
+                                  {children}
+                                </code>
+                              )
+                            }
+                          }}
+                        >{m.content || '*Incoming transmission...*'}</ReactMarkdown>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {/* Inline Action Buttons at End of Feed */}
+                {!isGenerating && !isChatLoading && messages.length > 0 && (
+                  <div className="flex items-center gap-4 mt-8 pt-8 border-t border-slate-800/50 justify-center">
                     <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id as any)}
-                      className={clsx(
-                        "pb-4 px-2 font-semibold text-sm flex items-center gap-2 border-b-2 transition-all",
-                        isActive ? "border-indigo-500 text-indigo-400" : "border-transparent text-slate-500 hover:text-slate-300 hover:border-slate-700"
-                      )}
+                      onClick={() => generateStudyPlan(true)}
+                      className="flex items-center gap-2 px-6 py-3.5 bg-fuchsia-600/20 hover:bg-fuchsia-600/40 text-fuchsia-200 border border-fuchsia-500/30 font-bold rounded-xl transition-all shadow-lg"
                     >
-                      <Icon className="w-4 h-4" /> {tab.label}
+                      <BrainCircuit className="w-5 h-5 text-fuchsia-400" />
+                      Continue to Unit {targetUnit + 1}
                     </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Tab Content Area */}
-            <div className="flex-1 overflow-y-auto p-8 scroll-smooth custom-scrollbar">
-              <div className="max-w-4xl mx-auto pb-24">
-
-                {/* Progress Bar */}
-                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-8 bg-slate-900/60 p-5 rounded-2xl border border-slate-800 shadow-xl flex items-center gap-6 backdrop-blur-md">
-                  <div className="font-bold text-slate-300 w-48 shrink-0 flex justify-between items-center">
-                    <span className="text-xs uppercase tracking-widest text-slate-500">Completion</span>
-                    <span className="text-emerald-400 text-xl tracking-tighter">
-                      {Math.round((memorizedQs.size / (plan.hitlist.length || 1)) * 100)}%
-                    </span>
-                  </div>
-                  <div className="flex-1 bg-slate-950 rounded-full h-2.5 overflow-hidden border border-slate-800">
-                    <motion.div
-                      className="bg-emerald-500 h-full relative"
-                      initial={{ width: 0 }}
-                      animate={{ width: `${(memorizedQs.size / (plan.hitlist.length || 1)) * 100}%` }}
-                      transition={{ type: "spring", bounce: 0, duration: 1 }}
+                    <button
+                      onClick={() => window.print()}
+                      className="flex items-center gap-2 px-6 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl border border-slate-700 transition-all font-sans"
                     >
-                      <div className="absolute inset-0 bg-white/20"></div>
-                    </motion.div>
+                      <FileIcon className="w-5 h-5 text-slate-400" />
+                      Export Feed to PDF
+                    </button>
                   </div>
-                </motion.div>
+                )}
+                <div ref={endOfMessagesRef} className="h-4"></div>
+              </div>
 
-                <AnimatePresence mode="wait">
-                  {activeTab === 'Hitlist' && (
-                    <motion.div key="hitlist" variants={containerVariants} initial="hidden" animate="visible" exit="hidden" className="space-y-6">
-                      <div className="flex items-center gap-3 mb-8 border-b border-slate-800 pb-4">
-                        <div className="h-8 w-1 bg-indigo-500 rounded-full"></div>
-                        <h3 className="text-2xl font-bold text-slate-100 tracking-tight">High-Yield Hitlist</h3>
-                      </div>
-                      {plan.hitlist.map((item, i) => {
-                        const isMemorized = memorizedQs.has(i)
-                        return (
-                          <motion.div variants={itemVariants} key={i} className={clsx(
-                            "p-6 rounded-2xl border shadow-xl relative group transition-all duration-300 bg-slate-900/40 backdrop-blur-sm",
-                            isMemorized ? 'border-emerald-500/30 bg-emerald-950/20' : 'border-slate-800 hover:border-slate-700 hover:bg-slate-800/40'
-                          )}>
-                            <div className="absolute top-6 right-6 flex items-center gap-4 z-10">
-                              {!isMemorized && <span className="text-[10px] font-bold text-rose-400 bg-rose-400/10 border border-rose-400/20 px-2 py-1 rounded tracking-widest uppercase">Target</span>}
-                              <label className="flex items-center gap-2 cursor-pointer bg-slate-950/80 px-3 py-1.5 rounded-lg border border-slate-800 hover:bg-slate-800 transition-colors">
-                                <input
-                                  type="checkbox" checked={isMemorized}
-                                  className="w-4 h-4 text-emerald-500 rounded border-slate-700 focus:ring-emerald-500 focus:ring-offset-slate-900 bg-slate-900"
-                                  onChange={(e) => {
-                                    const next = new Set(memorizedQs)
-                                    e.target.checked ? next.add(i) : next.delete(i)
-                                    setMemorizedQs(next)
-                                  }}
-                                />
-                                <span className={clsx("text-xs font-bold tracking-wide", isMemorized ? 'text-emerald-400' : 'text-slate-400')}>Mark Complete</span>
-                              </label>
-                            </div>
-                            <h4 className={clsx("text-xl font-bold mb-5 pr-40 leading-snug transition-colors", isMemorized ? 'text-emerald-200/50' : 'text-slate-100')}>
-                              <span className="text-indigo-500 mr-2">Q{i + 1}.</span> {item.q}
-                            </h4>
-                            {/* React Markdown handles tables, robust lists, and prose flawlessly */}
-                            <div className="prose prose-invert prose-sm max-w-none text-slate-300 leading-relaxed prose-strong:text-indigo-300 prose-strong:font-bold prose-p:mb-4 prose-a:text-indigo-400 prose-table:w-full prose-table:border-collapse prose-th:bg-slate-800/80 prose-th:border prose-th:border-slate-700 prose-td:border prose-td:border-slate-700/50 prose-th:p-3 prose-td:p-3 prose-td:bg-slate-800/20 prose-li:my-1">
-                              <ReactMarkdown remarkPlugins={[remarkGfm]}>{item.a}</ReactMarkdown>
-                            </div>
-                            <div className="mt-6 pt-4 border-t border-slate-800/50">
-                              <button
-                                onClick={() => { setChatOpen(true); setChatInput(`Can you explain the answer to: "${item.q}" in simpler terms?`); }}
-                                className="text-xs font-bold uppercase tracking-widest text-indigo-400 flex items-center gap-2 hover:text-indigo-300 transition-colors"
-                              >
-                                <MessageSquareText className="w-4 h-4" /> Dive Deeper <ChevronRight className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </motion.div>
-                        )
-                      })}
-                    </motion.div>
-                  )}
+              {/* Smart Back to Top/Bottom FAB */}
+              <AnimatePresence>
+                {showBackToTop && isScrolling && (
+                  <motion.button
+                    initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.8, y: 20 }}
+                    onClick={scrollDirection === 'up' ? scrollToTargetUnit : scrollToBottom}
+                    className="fixed bottom-32 right-12 z-50 p-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full shadow-2xl transition-colors focus:ring-4 focus:ring-indigo-500/50 flex items-center justify-center group"
+                    title={scrollDirection === 'up' ? "Back to Top of Current Unit" : "Scroll to Bottom"}
+                  >
+                    {scrollDirection === 'up' ? (
+                      <ArrowUp className="w-6 h-6 group-hover:-translate-y-1 transition-transform" />
+                    ) : (
+                      <ArrowDown className="w-6 h-6 group-hover:translate-y-1 transition-transform" />
+                    )}
+                  </motion.button>
+                )}
+              </AnimatePresence>
+            </div>
 
-                  {activeTab === 'Summaries' && (
-                    <motion.div key="summaries" variants={containerVariants} initial="hidden" animate="visible" exit="hidden" className="space-y-6">
-                      <div className="flex items-center gap-3 mb-8 border-b border-slate-800 pb-4">
-                        <div className="h-8 w-1 bg-purple-500 rounded-full"></div>
-                        <h3 className="text-2xl font-bold text-slate-100 tracking-tight">Architectural Architectures</h3>
-                      </div>
-                      {plan.summaries.map((item, i) => (
-                        <motion.div variants={itemVariants} key={i} className="bg-slate-900/40 p-8 rounded-2xl border border-slate-800 shadow-xl backdrop-blur-sm">
-                          <h4 className="text-xl font-bold text-slate-100 mb-4 flex items-center gap-3">
-                            <div className="w-2 h-2 rounded-full bg-purple-500"></div>{item.unit}
-                          </h4>
-                          <div className="prose prose-invert prose-sm max-w-none text-slate-400 leading-loose prose-strong:text-purple-300 prose-strong:font-bold">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{item.text}</ReactMarkdown>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </motion.div>
-                  )}
-
-                  {activeTab === 'Flashcards' && (
-                    <motion.div key="flashcards" variants={containerVariants} initial="hidden" animate="visible" exit="hidden" className="grid grid-cols-2 gap-6">
-                      {plan.flashcards.map((item, i) => (
-                        <motion.div variants={itemVariants} key={i} className="bg-slate-900/40 p-8 rounded-2xl border border-slate-800 shadow-xl text-center flex flex-col justify-center min-h-[200px] cursor-pointer hover:border-indigo-500/50 hover:bg-indigo-950/20 transition-all group backdrop-blur-sm">
-                          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-indigo-500/0 to-transparent group-hover:via-indigo-500/50 transition-all rounded-t-2xl"></div>
-                          <h4 className="font-bold text-lg text-slate-200 group-hover:hidden transition-all">{item.front}</h4>
-                          <div className="text-indigo-300 font-medium hidden group-hover:block transition-all leading-relaxed text-sm px-4">{item.back}</div>
-                        </motion.div>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+            {/* Sticky Chat Input Bar (ChatGPT Style) */}
+            <div className="bg-slate-900/80 backdrop-blur-xl border-t border-slate-800 p-6">
+              <div className="max-w-4xl 2xl:max-w-5xl mx-auto">
+                <form onSubmit={handleSendMessage} className="relative flex items-center shadow-2xl">
+                  <input
+                    type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)}
+                    placeholder="Ask a question about the study plan... (e.g., Explain Finite Automata step-by-step)"
+                    disabled={isChatLoading || isGenerating}
+                    className="w-full pl-6 pr-16 py-4 bg-slate-950/80 border border-slate-700 rounded-2xl focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none text-lg text-slate-100 transition-all placeholder:text-slate-500 font-sans shadow-inner"
+                  />
+                  <button type="submit" disabled={!chatInput.trim() || isChatLoading || isGenerating} className="absolute right-3 aspect-square flex items-center justify-center p-2 bg-indigo-600 shadow-md text-white rounded-xl hover:bg-indigo-500 disabled:opacity-40 disabled:bg-slate-800 disabled:text-slate-600 transition-colors">
+                    <span className="font-black text-xl leading-none">↑</span>
+                  </button>
+                </form>
               </div>
             </div>
+
           </motion.div>
         ) : null}
 
-        {/* Floating Sidekick Toggle Button (if closed) */}
-        {!chatOpen && plan && (
-          <motion.button
-            initial={{ scale: 0 }} animate={{ scale: 1 }}
-            onClick={() => setChatOpen(true)}
-            className="absolute bottom-8 right-8 bg-indigo-600 text-white p-4 rounded-full shadow-[0_0_30px_rgba(99,102,241,0.3)] hover:scale-105 hover:bg-indigo-500 transition-all group flex items-center gap-3 border border-indigo-400/30"
-          >
-            <MessageSquareText className="w-6 h-6" />
-            <span className="font-bold tracking-wide overflow-hidden max-w-0 group-hover:max-w-xs transition-all duration-300 whitespace-nowrap">Summon Sidekick</span>
-          </motion.button>
-        )}
-      </div>
-
-      {/* RIGHT SLIDE-OUT PANEL: TUTOR SIDEKICK */}
-      <div className={clsx(
-        "w-[450px] bg-slate-900 border-l border-slate-800 flex flex-col transition-transform duration-500 shadow-2xl z-20 absolute right-0 top-0 bottom-0",
-        chatOpen ? "translate-x-0" : "translate-x-full"
-      )}>
-        <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-950">
-          <h3 className="font-bold text-slate-200 flex items-center gap-3">
-            <MessageSquareText className="w-5 h-5 text-indigo-400" /> Active Session
-          </h3>
-          <button onClick={() => setChatOpen(false)} className="text-slate-500 hover:text-slate-300 p-2 rounded-lg hover:bg-slate-800 transition-colors">
-            ✕
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar bg-slate-900">
-          <div className="bg-indigo-950/30 text-indigo-200/80 p-4 rounded-2xl rounded-tl-sm border border-indigo-500/20 text-sm leading-relaxed backdrop-blur-sm shadow-sm">
-            I am your dedicated academic co-pilot. Drop any term or Hitlist question here, and I'll break it down into molecular detail.
-          </div>
-          {messages.map((m, i) => (
-            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={clsx(
-                "max-w-[85%] rounded-2xl p-4 text-sm shadow-sm leading-relaxed",
-                m.role === 'user'
-                  ? 'bg-indigo-600/90 text-white rounded-br-sm backdrop-blur-md'
-                  : 'bg-slate-800 text-slate-200 rounded-bl-sm border border-slate-700/50'
-              )}>
-                <div className="whitespace-pre-wrap">{m.content}</div>
-              </div>
-            </div>
-          ))}
-          <div ref={endOfMessagesRef} />
-        </div>
-
-        <div className="p-4 bg-slate-950 border-t border-slate-800">
-          <form onSubmit={handleSendMessage} className="relative">
-            <input
-              type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)}
-              placeholder="Query the database..." disabled={isChatLoading}
-              className="w-full pl-4 pr-12 py-3.5 bg-slate-900 border border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none text-sm text-slate-200 transition-all placeholder:text-slate-600"
-            />
-            <button type="submit" disabled={!chatInput.trim() || isChatLoading} className="absolute right-2 top-2 bottom-2 aspect-square flex items-center justify-center bg-indigo-600 shadow-md text-white rounded-lg hover:bg-indigo-500 disabled:opacity-50 disabled:bg-slate-800 disabled:text-slate-600 transition-colors">
-              <span className="font-bold text-lg leading-none">↑</span>
-            </button>
-          </form>
-        </div>
       </div>
 
     </div>

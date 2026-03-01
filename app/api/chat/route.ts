@@ -55,73 +55,44 @@ UPLOADED KNOWLEDGE BASE CONTEXT:
 ${contextText ? contextText : 'No document context found for this query.'}
 `.trim()
 
-        // Format messages for Ollama API
-        const ollamaMessages = [
-            { role: 'system', content: systemPrompt },
-            ...messages
-        ]
+        // Convert OpenAI-style messages to Gemini format
+        const geminiMessages = messages.map((m: any) => ({
+            role: m.role === 'user' ? 'user' : 'model',
+            parts: [{ text: m.content }]
+        }))
 
-        // Fetch from Ollama stream endpoint
-        const response = await fetch(`${OLLAMA_URL}/api/chat`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: 'llama3:8b-instruct-q4_K_M',
-                messages: ollamaMessages,
-                stream: true,
-                options: {
-                    temperature: 0.3,
-                    num_predict: 2000,
-                    repeat_penalty: 1.15
-                }
-            })
+        // Add System instruction manually to the first message or use SystemInstruction field
+        const { GoogleGenerativeAI } = require('@google/generative-ai')
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+
+        const model = genAI.getGenerativeModel({
+            model: "gemini-2.5-flash",
+            systemInstruction: systemPrompt,
+            generationConfig: {
+                temperature: 0.3,
+            }
         })
 
-        if (!response.ok || !response.body) {
-            return NextResponse.json({ error: 'LLM failed' }, { status: 500 })
-        }
+        const result = await model.generateContentStream({ contents: geminiMessages })
 
-        let buffer = ''
-        const decoder = new TextDecoder('utf-8')
-
-        const transformStream = new TransformStream({
-            transform(chunk, controller) {
-                const text = decoder.decode(chunk, { stream: true })
-                buffer += text
-
-                const lines = buffer.split('\n')
-                buffer = lines.pop() || ''
-
-                for (const line of lines) {
-                    if (!line.trim()) continue
-
-                    try {
-                        const parsed = JSON.parse(line)
-                        if (parsed.message?.content) {
-                            // Convert text into Uint8Array chunks directly for the Web API Response
-                            controller.enqueue(new TextEncoder().encode(parsed.message.content))
+        const textEncoder = new TextEncoder()
+        const stream = new ReadableStream({
+            async start(controller) {
+                try {
+                    for await (const chunk of result.stream) {
+                        const chunkText = chunk.text()
+                        if (chunkText) {
+                            controller.enqueue(textEncoder.encode(chunkText))
                         }
-                    } catch (e) {
-                        // ignore broken json line
                     }
-                }
-            },
-            flush(controller) {
-                if (buffer.trim()) {
-                    try {
-                        const parsed = JSON.parse(buffer)
-                        if (parsed.message?.content) {
-                            controller.enqueue(new TextEncoder().encode(parsed.message.content))
-                        }
-                    } catch (e) { }
+                    controller.close()
+                } catch (err) {
+                    controller.error(err)
                 }
             }
         })
 
-        // Stream NDJSON payload out
-        const textStream = response.body.pipeThrough(transformStream)
-
-        return new Response(textStream, {
+        return new Response(stream, {
             headers: {
                 'Content-Type': 'text/plain; charset=utf-8',
                 'Transfer-Encoding': 'chunked',
