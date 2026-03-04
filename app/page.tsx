@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { uploadPdfAction } from './actions/upload'
 import { createSubjectAction } from './actions/subjects'
-import { BookOpen, CheckCircle, FileText, UploadCloud, BrainCircuit, FileQuestion, GraduationCap, File as FileIcon, Loader2, Sparkles, ChevronRight, ArrowUp, ArrowDown } from 'lucide-react'
+import { BookOpen, CheckCircle, FileText, UploadCloud, BrainCircuit, FileQuestion, GraduationCap, File as FileIcon, Loader2, Sparkles, ChevronRight, ArrowUp, ArrowDown, X, PanelLeftClose, PanelLeftOpen, PlusCircle } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import clsx from 'clsx'
 import ReactMarkdown from 'react-markdown'
@@ -49,14 +49,18 @@ const loadingSteps = [
 export default function ExamDashboard() {
   const [subjectId, setSubjectId] = useState<string>('')
 
-  // File Upload State
   const [uploading, setUploading] = useState(false)
   const [files, setFiles] = useState<File[]>([])
+  const [uploadedFiles, setUploadedFiles] = useState<Set<string>>(new Set())
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Sidebar Toggle State
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
 
   // Configuration State
   const [urgency, setUrgency] = useState<'Cram' | 'Deep'>('Cram')
-  const [examType, setExamType] = useState<'Internal' | 'Final'>('Internal')
+  const [examType, setExamType] = useState<'Mid' | 'Semester'>('Mid')
+  const [midType, setMidType] = useState<'Mid 1' | 'Mid 2'>('Mid 1')
   const [answerLength, setAnswerLength] = useState<'Short' | 'Long'>('Short')
   const [targetGrade, setTargetGrade] = useState<'Pass' | 'Top'>('Pass')
   const [explanationStyle, setExplanationStyle] = useState<'Academic' | 'Simplified'>('Simplified')
@@ -69,6 +73,7 @@ export default function ExamDashboard() {
   const [chatInput, setChatInput] = useState('')
   const [isChatLoading, setIsChatLoading] = useState(false)
   const [targetUnit, setTargetUnit] = useState<number>(1)
+  const [isHandwritten, setIsHandwritten] = useState(false)
   const [showBackToTop, setShowBackToTop] = useState(false)
   const [scrollDirection, setScrollDirection] = useState<'up' | 'down'>('up')
   const [isScrolling, setIsScrolling] = useState(false)
@@ -77,17 +82,7 @@ export default function ExamDashboard() {
   const endOfMessagesRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    async function initSubject() {
-      try {
-        const res = await createSubjectAction()
-        if (res.id) setSubjectId(res.id)
-      } catch (err) {
-        console.error('Failed to init subject', err)
-      }
-    }
-    initSubject()
-  }, [])
+  // Subject initializes lazily on first upload to prevent empty database rows
 
   useEffect(() => {
     // Only auto-scroll to the bottom when explicitly loading manual chat messages, avoiding yanking during syllabus generation.
@@ -95,6 +90,16 @@ export default function ExamDashboard() {
       endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
   }, [messages, isChatLoading])
+
+  useEffect(() => {
+    if (isHandwritten) {
+      document.documentElement.classList.add('print-handwritten-active');
+      document.body.classList.add('print-handwritten-active');
+    } else {
+      document.documentElement.classList.remove('print-handwritten-active');
+      document.body.classList.remove('print-handwritten-active');
+    }
+  }, [isHandwritten])
 
   useEffect(() => {
     let interval: NodeJS.Timeout
@@ -111,24 +116,18 @@ export default function ExamDashboard() {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.length) return
     const selectedFiles = Array.from(e.target.files)
-    setFiles((prev) => [...prev, ...selectedFiles])
 
-    setUploading(true)
-    for (const file of selectedFiles) {
-      try {
-        const formData = new FormData()
-        formData.append('file', new Blob([await file.arrayBuffer()], { type: file.type }), file.name)
-        formData.append('subjectId', subjectId)
+    // Prevent strictly duplicate files from being queued twice
+    setFiles((prev) => {
+      const newFiles = selectedFiles.filter(f => !prev.some(p => p.name === f.name))
+      return [...prev, ...newFiles]
+    })
 
-        const data = await uploadPdfAction(formData)
-        if (data.error) throw new Error(data.error)
-      } catch (err: any) {
-        console.error('Failed to upload', file.name, err)
-        alert(`Failed to process ${file.name}: ${err.message}`)
-      }
-    }
-    setUploading(false)
     if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const removeFile = (nameToRemove: string) => {
+    setFiles((prev) => prev.filter(f => f.name !== nameToRemove))
   }
 
   const generateStudyPlan = async (isAppend = false) => {
@@ -139,10 +138,46 @@ export default function ExamDashboard() {
 
     setIsGenerating(true)
 
+    let activeSubjectId = subjectId;
+
+    // BATCH UPLOAD QUEUED FILES
+    const unuploadedFiles = files.filter(f => !uploadedFiles.has(f.name));
+    if (unuploadedFiles.length > 0) {
+      setUploading(true)
+      let currentSubjectId = subjectId;
+      if (!currentSubjectId) {
+        try {
+          const res = await createSubjectAction();
+          if (res.id) currentSubjectId = res.id;
+        } catch (err) {
+          setIsGenerating(false); setUploading(false); return alert('Database err');
+        }
+      }
+
+      for (const file of unuploadedFiles) {
+        try {
+          const formData = new FormData()
+          // Passing original File object rather than converting to BLOB bypasses weird encoding
+          formData.append('file', file)
+          formData.append('subjectId', currentSubjectId)
+          const data = await uploadPdfAction(formData)
+          if (data.subjectId) currentSubjectId = data.subjectId
+        } catch (err) {
+          console.error('Fail to upload chunk', err)
+        }
+      }
+      if (currentSubjectId !== subjectId) setSubjectId(currentSubjectId);
+      setUploadedFiles(prev => new Set([...prev, ...unuploadedFiles.map(f => f.name)]))
+      setUploading(false)
+
+      // Update the activeSubjectId to guarantee the fetch sees it immediately
+      activeSubjectId = currentSubjectId;
+    }
+
     let newTargetUnit = targetUnit;
     if (!isAppend) {
-      newTargetUnit = 1;
-      setTargetUnit(1);
+      newTargetUnit = (examType === 'Mid' && midType === 'Mid 2') ? 3 : 1;
+      setTargetUnit(newTargetUnit);
     } else {
       newTargetUnit = targetUnit + 1;
       setTargetUnit(newTargetUnit);
@@ -152,7 +187,7 @@ export default function ExamDashboard() {
       const res = await fetch('/api/generate-plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subjectId, urgency, examType, answerLength, targetGrade, explanationStyle, isAppend, targetUnit: newTargetUnit })
+        body: JSON.stringify({ subjectId: activeSubjectId, urgency, examType, midType, answerLength, targetGrade, explanationStyle, isAppend, targetUnit: newTargetUnit })
       })
 
       if (!res.ok || !res.body) {
@@ -247,6 +282,52 @@ export default function ExamDashboard() {
     setIsChatLoading(false)
   }
 
+  const generateMoreQuestions = async () => {
+    if (isChatLoading) return;
+    const prompt = `Generate 2 MORE expected Long Questions (10-15 Marks), 3 MORE highly probable short questions, and 3 MORE highly probable MCQs for Unit ${targetUnit} from the syllabus context provided earlier. Do NOT duplicate any questions you have already provided in the feed above. Provide ONLY the new questions and their explanations using the exact same clean formatting as before (Section 1: Long, Section 2: Short, Section 3: MCQ). Use plain text for the 'A:' answers.`;
+
+    const contextMessages = [...messages, { role: 'user' as const, content: prompt }];
+    // Show a loading indicator in the feed
+    setMessages(prev => [...prev, { role: 'assistant', content: `*Scanning syllabus for more high-yield questions for Unit ${targetUnit}...*` }]);
+    setIsChatLoading(true);
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: contextMessages, subjectId })
+      });
+
+      if (!res.ok || !res.body) throw new Error('Failed to fetch');
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedMessage = '';
+
+      while (true) {
+        const { value, done } = await reader.read()
+        if (done) break
+        accumulatedMessage += decoder.decode(value, { stream: true })
+        setMessages((prev) => {
+          const updated = [...prev]
+          let cleaned = accumulatedMessage;
+          cleaned = cleaned.replace(/\*\*(A|Answer|ANSWER):\*\*/gi, 'A:');
+          cleaned = cleaned.replace(/(A|Answer|ANSWER):\s*\*\*(.*?)\*\*/gi, 'A: $2');
+          updated[updated.length - 1].content = cleaned
+          return updated
+        })
+      }
+    } catch (err) {
+      console.error(err)
+      setMessages((prev) => {
+        const updated = [...prev]
+        updated[updated.length - 1].content = 'Sorry, failed to generate more questions.'
+        return updated;
+      })
+    }
+    setIsChatLoading(false);
+  }
+
   const handleScroll = () => {
     if (!scrollContainerRef.current) return
     const { scrollTop } = scrollContainerRef.current
@@ -278,11 +359,24 @@ export default function ExamDashboard() {
   }
 
   return (
-    <div className="flex h-screen bg-slate-950 text-slate-100 font-sans overflow-hidden selection:bg-indigo-500/30">
+    <div className={clsx(
+      "flex h-screen print:h-auto print:overflow-visible bg-slate-950 print:bg-white text-slate-100 print:text-black font-sans overflow-hidden selection:bg-indigo-500/30 relative",
+      isHandwritten ? "print-handwritten" : ""
+    )}>
+
+      {/* Distraction-Free Hardware-Accelerated Ambient Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 print:hidden">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-900/10 rounded-full blur-[140px] mix-blend-screen animate-blob"></div>
+        <div className="absolute top-[20%] right-[-10%] w-[35%] h-[40%] bg-slate-800/20 rounded-full blur-[140px] mix-blend-screen animate-blob animation-delay-2000"></div>
+        <div className="absolute bottom-[-20%] left-[20%] w-[50%] h-[50%] bg-blue-900/10 rounded-full blur-[140px] mix-blend-screen animate-blob animation-delay-4000"></div>
+      </div>
 
       {/* LEFT SIDEBAR: CONFIGURATION */}
-      <div className="w-80 bg-slate-900 border-r border-slate-800 p-6 flex flex-col z-10 shadow-xl relative">
-        <h2 className="text-2xl flex items-center gap-2 font-bold bg-gradient-to-br from-indigo-400 to-purple-500 bg-clip-text text-transparent mb-8 tracking-tight">
+      <div className={clsx(
+        "bg-slate-900/40 backdrop-blur-3xl border-r border-slate-700/30 flex flex-col z-10 shadow-2xl relative transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] print:hidden",
+        isSidebarOpen ? "w-80 p-6 opacity-100" : "w-0 p-0 overflow-hidden border-none opacity-0 invisible"
+      )}>
+        <h2 className="text-2xl flex items-center gap-2 font-bold bg-gradient-to-br from-indigo-400 to-purple-500 bg-clip-text text-transparent mb-8 tracking-tight whitespace-nowrap">
           <GraduationCap className="w-8 h-8 text-indigo-500" />
           Pro-Prep AI
         </h2>
@@ -315,9 +409,16 @@ export default function ExamDashboard() {
               {files.length > 0 && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-4 flex flex-col gap-2">
                   {files.map((f, i) => (
-                    <motion.div initial={{ x: -10, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={i} className="flex items-center gap-3 p-2.5 bg-slate-800/50 rounded-lg border border-slate-700/50 text-xs text-slate-300">
+                    <motion.div initial={{ x: -10, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={i} className="flex items-center gap-3 p-2.5 bg-slate-800/50 rounded-lg border border-slate-700/50 text-xs text-slate-300 group">
                       <FileIcon className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                      <span className="truncate">{f.name}</span>
+                      <span className="truncate flex-1">{f.name}</span>
+                      {uploadedFiles.has(f.name) ? (
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                      ) : (
+                        <button onClick={() => removeFile(f.name)} className="text-slate-500 hover:text-rose-400 p-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </motion.div>
                   ))}
                 </motion.div>
@@ -343,9 +444,17 @@ export default function ExamDashboard() {
               <div>
                 <label className="text-xs text-slate-300 block mb-2 font-bold tracking-wide">Exam Standard</label>
                 <div className="flex bg-slate-900/50 p-1 rounded-xl border border-slate-700/50">
-                  <button onClick={() => setExamType('Internal')} className={clsx("flex-1 text-sm py-2.5 rounded-lg font-bold transition-all", examType === 'Internal' ? "bg-emerald-600 text-white shadow-lg scale-[1.02]" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50")}>Internal/Mid</button>
-                  <button onClick={() => setExamType('Final')} className={clsx("flex-1 text-sm py-2.5 rounded-lg font-bold transition-all", examType === 'Final' ? "bg-indigo-600 text-white shadow-lg scale-[1.02]" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50")}>University</button>
+                  <button onClick={() => setExamType('Mid')} className={clsx("flex-1 text-sm py-2.5 rounded-lg font-bold transition-all", examType === 'Mid' ? "bg-emerald-600 text-white shadow-lg scale-[1.02]" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50")}>Mid</button>
+                  <button onClick={() => setExamType('Semester')} className={clsx("flex-1 text-sm py-2.5 rounded-lg font-bold transition-all", examType === 'Semester' ? "bg-indigo-600 text-white shadow-lg scale-[1.02]" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50")}>Semester</button>
                 </div>
+                <AnimatePresence>
+                  {examType === 'Mid' && (
+                    <motion.div initial={{ opacity: 0, height: 0, marginTop: 0 }} animate={{ opacity: 1, height: 'auto', marginTop: 12 }} exit={{ opacity: 0, height: 0, marginTop: 0 }} className="flex bg-slate-900/50 p-1 rounded-xl border border-slate-700/50 overflow-hidden">
+                      <button onClick={() => setMidType('Mid 1')} className={clsx("flex-1 text-xs py-2 rounded-lg font-bold transition-all whitespace-nowrap px-1", midType === 'Mid 1' ? "bg-cyan-600 text-white shadow-md scale-[1.02]" : "text-slate-400 hover:text-slate-200")}>Mid 1 (1-2.5)</button>
+                      <button onClick={() => setMidType('Mid 2')} className={clsx("flex-1 text-xs py-2 rounded-lg font-bold transition-all whitespace-nowrap px-1", midType === 'Mid 2' ? "bg-teal-600 text-white shadow-md scale-[1.02]" : "text-slate-400 hover:text-slate-200")}>Mid 2 (2.5-5)</button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               <div>
@@ -376,11 +485,11 @@ export default function ExamDashboard() {
         </div>
 
         {/* Generate Button Fixed to Bottom */}
-        <div className="pt-6 border-t border-slate-800 mt-2">
+        <div className="pt-6 border-t border-slate-700/30 mt-2">
           <button
             onClick={() => generateStudyPlan(false)}
             disabled={isGenerating || uploading}
-            className="w-full relative overflow-hidden group py-3.5 px-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-500 transition-all focus:ring-4 focus:ring-indigo-500/20 disabled:opacity-50 disabled:grayscale flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(99,102,241,0.2)]"
+            className="w-full relative overflow-hidden group py-3.5 px-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-500 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(99,102,241,0.4)] active:scale-[0.98] transition-all focus:ring-4 focus:ring-indigo-500/20 disabled:opacity-50 disabled:grayscale flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(99,102,241,0.2)]"
           >
             <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full duration-1000 ease-in-out transition-transform"></div>
             {isGenerating ? (
@@ -393,7 +502,7 @@ export default function ExamDashboard() {
       </div>
 
       {/* MAIN AREA: TABS & CONTENT */}
-      <div className="flex-1 flex flex-col relative bg-[#09090b] bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.1),rgba(255,255,255,0))]">
+      <div className="flex-1 flex flex-col relative z-10 bg-transparent">
 
         {/* Loading Overlay */}
         <AnimatePresence>
@@ -428,121 +537,189 @@ export default function ExamDashboard() {
         </AnimatePresence>
 
         {!hasGenerated && !isGenerating ? (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="h-full flex flex-col items-center justify-center text-center px-8 text-slate-500">
-            <div className="w-24 h-24 mb-6 rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-center shadow-2xl">
-              <GraduationCap className="w-12 h-12 text-slate-700" />
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="h-full flex flex-col items-center justify-center text-center px-8 text-slate-500 relative z-10">
+            <div className="w-24 h-24 mb-6 rounded-3xl bg-slate-800/40 backdrop-blur-lg border border-slate-700/50 flex items-center justify-center shadow-[0_0_40px_rgba(99,102,241,0.15)] relative">
+              <div className="absolute inset-0 bg-indigo-500/10 rounded-3xl blur-xl"></div>
+              <GraduationCap className="w-12 h-12 text-indigo-400 relative z-10" />
             </div>
             <h2 className="text-3xl font-bold text-slate-200 mb-3 tracking-tight">Arena Awaiting Context</h2>
             <p className="text-slate-400 max-w-md text-lg">Load your parameters on the left to synthesize the ultimate exam survival protocol.</p>
           </motion.div>
         ) : hasGenerated ? (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 flex flex-col min-h-0 relative">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 flex flex-col min-h-0 print:min-h-full print:h-auto print:block print:overflow-visible relative">
 
             {/* Header Area */}
-            <div className="border-b border-slate-800 px-8 py-6 bg-slate-900/50 backdrop-blur-md sticky top-0 z-20 flex justify-between items-center shadow-sm">
-              <div className="flex items-center gap-3">
+            <div className="border-b border-slate-700/30 px-6 py-5 bg-slate-900/40 backdrop-blur-2xl sticky top-0 z-20 flex justify-between items-center shadow-sm relative print:hidden">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                  className="p-2 bg-slate-800/80 hover:bg-slate-700 rounded-lg text-slate-300 border border-slate-700 transition-colors shadow-sm"
+                  title={isSidebarOpen ? "Close Configuration Sidebar" : "Open Configuration Sidebar"}
+                >
+                  {isSidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
+                </button>
                 <div className="h-8 w-1 bg-indigo-500 rounded-full"></div>
-                <h3 className="text-2xl font-bold text-slate-100 tracking-tight">Active Survival Plan</h3>
+                <h3 className="text-xl md:text-2xl font-bold text-slate-100 tracking-tight">Active Survival Plan</h3>
               </div>
             </div>
 
             {/* Chat/Markdown Feed */}
             <div
-              className="flex-1 overflow-y-auto px-6 py-12 md:px-12 scroll-smooth custom-scrollbar relative"
+              className="flex-1 overflow-y-auto print:overflow-visible print:h-auto px-6 py-12 md:px-12 print:px-0 print:py-0 scroll-smooth custom-scrollbar relative"
               ref={scrollContainerRef}
               onScroll={handleScroll}
             >
-              <div className="max-w-4xl 2xl:max-w-5xl mx-auto pb-40 flex flex-col gap-10">
-                {messages.map((m, idx) => (
-                  <div key={idx} id={`message-${idx}`} className={clsx("flex font-sans", m.role === 'user' ? "justify-end" : "justify-start")}>
-                    {m.role === 'user' ? (
-                      <div className="max-w-[85%] bg-indigo-600 text-white p-5 rounded-3xl rounded-tr-sm shadow-md text-lg leading-relaxed antialiased ml-auto">
-                        {m.content}
-                      </div>
-                    ) : (
-                      <div className="w-full text-slate-200 antialiased flex flex-col gap-6">
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm, remarkMath]}
-                          rehypePlugins={[rehypeKatex, rehypeHighlight]}
-                          components={{
-                            h1: ({ node, ...props }) => <h1 className="text-4xl md:text-5xl font-black text-slate-100 tracking-tight mt-12 mb-6 border-b border-slate-800 pb-4" {...props} />,
-                            h2: ({ node, ...props }) => <h2 className="text-2xl md:text-3xl font-bold text-slate-100 mt-10 mb-4" {...props} />,
-                            h3: ({ node, ...props }) => <h3 className="text-xl md:text-2xl font-bold text-slate-200 mt-10 mb-6 bg-slate-900/60 p-4 border-l-4 border-indigo-500 rounded-r-lg uppercase tracking-wider" {...props} />,
-                            h4: ({ node, ...props }) => <h4 className="text-xl md:text-[1.35rem] font-bold text-slate-100 mt-8 mb-3 tracking-tight" {...props} />,
-                            p: ({ node, ...props }) => <p className="text-lg md:text-[1.125rem] leading-[1.8] text-slate-300 md:mb-5 tracking-wide" {...props} />,
-                            ul: ({ node, ...props }) => <ul className="list-disc leading-[1.8] text-lg md:text-[1.125rem] pl-8 mb-6 space-y-3 text-slate-300" {...props} />,
-                            ol: ({ node, ...props }) => <ol className="list-decimal leading-[1.8] text-lg md:text-[1.125rem] pl-8 mb-6 space-y-3 text-slate-300" {...props} />,
-                            li: ({ node, ...props }) => <li className="pl-2" {...props} />,
-                            strong: ({ node, ...props }) => <strong className="font-bold text-white" {...props} />,
-                            a: ({ node, ...props }) => <a className="text-indigo-400 font-medium hover:text-indigo-300 hover:underline underline-offset-4 transition-colors" target="_blank" rel="noopener noreferrer" {...props} />,
-                            blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-slate-600 pl-4 italic text-slate-400 my-6 bg-slate-900/30 py-2 pr-4 rounded-r-lg" {...props} />,
-                            hr: ({ node, ...props }) => <hr className="border-slate-800 border-t-2 my-12" {...props} />,
-                            table: ({ node, ...props }) => (
-                              <div className="overflow-x-auto my-8 rounded-xl ring-1 ring-slate-700/50 bg-slate-900/20">
-                                <table className="w-full text-left border-collapse" {...props} />
-                              </div>
-                            ),
-                            thead: ({ node, ...props }) => <thead className="bg-slate-800/80 border-b border-slate-700 text-slate-300 text-sm uppercase tracking-wider" {...props} />,
-                            th: ({ node, ...props }) => <th className="px-6 py-4 font-bold" {...props} />,
-                            td: ({ node, ...props }) => <td className="px-6 py-4 border-b border-slate-800/50 text-slate-300 bg-slate-900/30" {...props} />,
-                            tr: ({ node, ...props }) => <tr className="hover:bg-slate-800/20 transition-colors" {...props} />,
-                            pre: ({ node, children, ...props }: any) => {
-                              let language = 'Code'
-                              const childArray = React.Children.toArray(children)
-                              const codeElement = childArray[0]
-                              if (React.isValidElement(codeElement)) {
-                                const childProps: any = codeElement.props || {}
-                                if (childProps.className) {
-                                  const match = /language-(\w+)/.exec(childProps.className)
-                                  if (match) language = match[1]
+              <div className="max-w-4xl 2xl:max-w-5xl mx-auto pb-40 print:max-w-none print:w-full print:mx-0 print:pb-0 print:gap-6 flex flex-col gap-10">
+                {messages.map((m, idx) => {
+                  let displayContent = m.content || '*Incoming transmission...*';
+
+                  // Dynamic sanitization for authentic handwritten feel
+                  if (isHandwritten) {
+                    // Start directly from Unit 1 by collapsing the entire Survival Plan Intro Message entirely
+                    displayContent = displayContent.replace(/# 🎓 Survival Plan Generated[\s\S]*?deeper detail\./, '');
+
+                    // Strip all emojis EXCEPT checks and crosses (✅, ✔️, ❌) which are needed to tick MCQs
+                    displayContent = displayContent.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{2704}\u{2706}-\u{2713}\u{2715}-\u{274B}\u{274D}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{1F1E6}-\u{1F1FF}\u{1F900}-\u{1F9FF}\u{1FA70}-\u{1FAFF}\u{1F400}-\u{1F4FF}\u{2B50}]/gu, '');
+                    // Strip lines containing generic search/video links
+                    displayContent = displayContent.replace(/^.*Search Web.*$/gmi, '');
+                    displayContent = displayContent.replace(/^.*Watch video.*$/gmi, '');
+                    displayContent = displayContent.replace(/^.*youtube.*$/gmi, '');
+
+                    // Replace green ✅ with a simple unicode ✔️ (which renders natively black)
+                    displayContent = displayContent.replace(/✅/gi, '✔');
+
+                    // Make MCQ option lines (e.g., "- A) ...") drop the bullet point and bold the letter to act as a black ink header
+                    displayContent = displayContent.replace(/^[ \t]*[-\*][ \t]+([A-E][\.\)])/gmi, '\n**$1**');
+
+                    // Force headers for A: and Pro-Tip: to make them render in Black Ink instead of Blue
+                    displayContent = displayContent.replace(/(?:^|\n)[ \t]*(A:|Pro-Tip:)/gmi, '\n**$1**');
+
+                    // Clean up potential extra newlines
+                    displayContent = displayContent.replace(/\n\s*\n/g, '\n\n').trim();
+                    if (!displayContent) return null; // If intro was the only thing, don't render an empty box!
+                  }
+
+                  return (
+                    <div key={idx} id={`message-${idx}`} className={clsx("flex font-sans print:block print:page-break-inside-avoid", m.role === 'user' ? "justify-end print:hidden" : "justify-start")}>
+                      {m.role === 'user' ? (
+                        <div className="max-w-[85%] bg-indigo-600 text-white p-5 rounded-3xl rounded-tr-sm shadow-md text-lg leading-relaxed antialiased ml-auto">
+                          {m.content}
+                        </div>
+                      ) : (
+                        <div className="w-full text-slate-200 antialiased flex flex-col gap-6">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm, remarkMath]}
+                            rehypePlugins={[rehypeKatex, rehypeHighlight]}
+                            components={{
+                              h1: ({ node, ...props }) => <h1 className="text-4xl md:text-5xl font-black text-slate-100 tracking-tight mt-12 mb-6 border-b border-slate-800 pb-4" {...props} />,
+                              h2: ({ node, ...props }) => <h2 className="text-2xl md:text-3xl font-bold text-slate-100 mt-10 mb-4" {...props} />,
+                              h3: ({ node, ...props }) => <h3 className="text-xl md:text-2xl font-bold text-slate-200 mt-10 mb-6 bg-slate-900/60 p-4 border-l-4 border-indigo-500 rounded-r-lg uppercase tracking-wider" {...props} />,
+                              h4: ({ node, ...props }) => <h4 className="text-xl md:text-[1.35rem] font-bold text-slate-100 mt-8 mb-3 tracking-tight" {...props} />,
+                              p: ({ node, ...props }) => <p className="text-lg md:text-[1.125rem] leading-[1.8] text-slate-300 md:mb-5 tracking-wide" {...props} />,
+                              ul: ({ node, ...props }) => <ul className="list-disc leading-[1.8] text-lg md:text-[1.125rem] pl-8 mb-6 space-y-3 text-slate-300" {...props} />,
+                              ol: ({ node, ...props }) => <ol className="list-decimal leading-[1.8] text-lg md:text-[1.125rem] pl-8 mb-6 space-y-3 text-slate-300" {...props} />,
+                              li: ({ node, ...props }) => <li className="pl-2" {...props} />,
+                              strong: ({ node, ...props }) => <strong className="font-bold text-white" {...props} />,
+                              a: ({ node, ...props }) => <a className="text-indigo-400 font-medium hover:text-indigo-300 hover:underline underline-offset-4 transition-colors" target="_blank" rel="noopener noreferrer" {...props} />,
+                              blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-slate-600 pl-4 italic text-slate-400 my-6 bg-slate-900/30 py-2 pr-4 rounded-r-lg" {...props} />,
+                              hr: ({ node, ...props }) => <hr className="border-slate-800 border-t-2 my-12" {...props} />,
+                              table: ({ node, ...props }) => (
+                                <div className="overflow-x-auto my-8 rounded-xl ring-1 ring-slate-700/50 bg-slate-900/20">
+                                  <table className="w-full text-left border-collapse" {...props} />
+                                </div>
+                              ),
+                              thead: ({ node, ...props }) => <thead className="bg-slate-800/80 border-b border-slate-700 text-slate-300 text-sm uppercase tracking-wider" {...props} />,
+                              th: ({ node, ...props }) => <th className="px-6 py-4 font-bold" {...props} />,
+                              td: ({ node, ...props }) => <td className="px-6 py-4 border-b border-slate-800/50 text-slate-300 bg-slate-900/30" {...props} />,
+                              tr: ({ node, ...props }) => <tr className="hover:bg-slate-800/20 transition-colors" {...props} />,
+                              pre: ({ node, children, ...props }: any) => {
+                                let language = 'Code'
+                                const childArray = React.Children.toArray(children)
+                                const codeElement = childArray[0]
+                                if (React.isValidElement(codeElement)) {
+                                  const childProps: any = codeElement.props || {}
+                                  if (childProps.className) {
+                                    const match = /language-(\w+)/.exec(childProps.className)
+                                    if (match) language = match[1]
+                                  }
+                                  return (
+                                    <div className="my-8 rounded-xl overflow-hidden ring-1 ring-slate-700/50 shadow-2xl bg-[#0d1117]">
+                                      <div className="px-4 py-3 bg-slate-800/80 border-b border-slate-700/50 text-xs text-slate-400 font-mono uppercase flex justify-between items-center tracking-wider">
+                                        <span>{language}</span>
+                                      </div>
+                                      <pre className="p-5 overflow-x-auto text-[0.95rem] leading-relaxed" {...props}>
+                                        {React.cloneElement(codeElement, { 'data-block': true } as any)}
+                                      </pre>
+                                    </div>
+                                  )
+                                }
+                                return <pre {...props}>{children}</pre>
+                              },
+                              code: ({ node, className, children, "data-block": isBlock, ...props }: any) => {
+                                if (isBlock || (className && className.includes('language-'))) {
+                                  return <code className={className} {...props}>{children}</code>
                                 }
                                 return (
-                                  <div className="my-8 rounded-xl overflow-hidden ring-1 ring-slate-700/50 shadow-2xl bg-[#0d1117]">
-                                    <div className="px-4 py-3 bg-slate-800/80 border-b border-slate-700/50 text-xs text-slate-400 font-mono uppercase flex justify-between items-center tracking-wider">
-                                      <span>{language}</span>
-                                    </div>
-                                    <pre className="p-5 overflow-x-auto text-[0.95rem] leading-relaxed" {...props}>
-                                      {React.cloneElement(codeElement, { 'data-block': true } as any)}
-                                    </pre>
-                                  </div>
+                                  <code className="bg-slate-800/80 text-indigo-300 px-2 py-1 rounded-md font-mono text-[0.9em] border border-slate-700/50" {...props}>
+                                    {children}
+                                  </code>
                                 )
                               }
-                              return <pre {...props}>{children}</pre>
-                            },
-                            code: ({ node, className, children, "data-block": isBlock, ...props }: any) => {
-                              if (isBlock || (className && className.includes('language-'))) {
-                                return <code className={className} {...props}>{children}</code>
-                              }
-                              return (
-                                <code className="bg-slate-800/80 text-indigo-300 px-2 py-1 rounded-md font-mono text-[0.9em] border border-slate-700/50" {...props}>
-                                  {children}
-                                </code>
-                              )
-                            }
-                          }}
-                        >{m.content || '*Incoming transmission...*'}</ReactMarkdown>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                            }}
+                          >{displayContent}</ReactMarkdown>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
 
                 {/* Inline Action Buttons at End of Feed */}
                 {!isGenerating && !isChatLoading && messages.length > 0 && (
-                  <div className="flex items-center gap-4 mt-8 pt-8 border-t border-slate-800/50 justify-center">
-                    <button
-                      onClick={() => generateStudyPlan(true)}
-                      className="flex items-center gap-2 px-6 py-3.5 bg-fuchsia-600/20 hover:bg-fuchsia-600/40 text-fuchsia-200 border border-fuchsia-500/30 font-bold rounded-xl transition-all shadow-lg"
-                    >
-                      <BrainCircuit className="w-5 h-5 text-fuchsia-400" />
-                      Continue to Unit {targetUnit + 1}
-                    </button>
-                    <button
-                      onClick={() => window.print()}
-                      className="flex items-center gap-2 px-6 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl border border-slate-700 transition-all font-sans"
-                    >
-                      <FileIcon className="w-5 h-5 text-slate-400" />
-                      Export Feed to PDF
-                    </button>
+                  <div className="flex flex-col items-center gap-6 mt-8 pt-8 border-t border-slate-800/50 print:hidden">
+                    <div className="flex flex-wrap items-center gap-4 justify-center">
+                      <button
+                        onClick={() => generateMoreQuestions()}
+                        className="flex items-center gap-2 px-6 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl border border-slate-700 transition-all font-sans shadow-lg"
+                      >
+                        <PlusCircle className="w-5 h-5 text-indigo-400" />
+                        More Unit {targetUnit} Questions
+                      </button>
+                      {!(examType === 'Mid' && midType === 'Mid 1' && targetUnit >= 3) && (
+                        <button
+                          onClick={() => generateStudyPlan(true)}
+                          className="flex items-center gap-2 px-6 py-3.5 bg-fuchsia-600/20 hover:bg-fuchsia-600/40 text-fuchsia-200 border border-fuchsia-500/30 font-bold rounded-xl transition-all shadow-lg"
+                        >
+                          <BrainCircuit className="w-5 h-5 text-fuchsia-400" />
+                          Continue to Unit {targetUnit + 1}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Exporter Controls */}
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-2 bg-slate-900/50 p-4 rounded-2xl border border-slate-700/50 w-full max-w-lg">
+                      <label className="flex items-center cursor-pointer gap-3 min-w-[200px]">
+                        <div className="relative">
+                          <input type="checkbox" className="sr-only" checked={isHandwritten} onChange={() => setIsHandwritten(!isHandwritten)} />
+                          <div className={clsx("block w-14 h-8 rounded-full transition-colors", isHandwritten ? "bg-indigo-500" : "bg-slate-700")}></div>
+                          <div className={clsx("dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform", isHandwritten ? "transform translate-x-6" : "")}></div>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-slate-200 font-bold text-sm tracking-wide">📝 Handwritten Notes</span>
+                          <span className="text-slate-500 text-xs">Styles PDF like a notebook</span>
+                        </div>
+                      </label>
+
+                      <button
+                        onClick={() => window.print()}
+                        className={clsx(
+                          "flex items-center justify-center gap-2 px-6 py-3.5 font-bold rounded-xl border transition-all font-sans flex-1 w-full",
+                          isHandwritten ? "bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.3)]" : "bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700"
+                        )}
+                      >
+                        <FileIcon className="w-5 h-5" />
+                        Save as PDF
+                      </button>
+                    </div>
                   </div>
                 )}
                 <div ref={endOfMessagesRef} className="h-4"></div>
@@ -570,7 +747,7 @@ export default function ExamDashboard() {
             </div>
 
             {/* Sticky Chat Input Bar (ChatGPT Style) */}
-            <div className="bg-slate-900/80 backdrop-blur-xl border-t border-slate-800 p-6">
+            <div className="bg-slate-900/80 backdrop-blur-xl border-t border-slate-800 p-6 print:hidden">
               <div className="max-w-4xl 2xl:max-w-5xl mx-auto">
                 <form onSubmit={handleSendMessage} className="relative flex items-center shadow-2xl">
                   <input

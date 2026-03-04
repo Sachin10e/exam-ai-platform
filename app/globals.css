@@ -10,6 +10,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-kalam: var(--font-kalam);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -17,10 +18,281 @@
     --background: #0a0a0a;
     --foreground: #ededed;
   }
+
+  .prose code {
+    @apply bg-slate-800/50 text-indigo-300 px-1.5 py-0.5 rounded text-sm font-mono border border-slate-700/50;
+  }
+}
+
+@page {
+  size: auto;
+  margin: 1.5cm !important;
+  /* Perfect uniform hardware margin for every page */
+}
+
+/* =========================================
+   PERFECT PDF PRINTING ENGINE
+========================================= */
+@media print {
+
+  /* Force background colors to print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Reset the entire app layout from screen to paper */
+  html,
+  body,
+  main {
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+    color: black !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Force the deeply warm scanned paper background globally if handwritten mode is active */
+  html.print-handwritten-active,
+  body.print-handwritten-active,
+  main.print-handwritten-active {
+    background: #fdfaf0 !important;
+    /* Warm scanned paper */
+  }
+
+  /* Hide absolutely all Navigation, Sidebars, and Interactive UI Elements */
+  .w-80,
+  /* Configuration Sidebar */
+  button,
+  /* All buttons including Save as PDF */
+  .border-b.sticky,
+  /* Sticky Top Header */
+  .orb
+
+  /* Background animated blobs */
+    {
+    display: none !important;
+  }
+
+  /* Aggressively un-constrain the chat feed to print all pages */
+  .flex-1.overflow-y-auto {
+    height: auto !important;
+    overflow: visible !important;
+    position: static !important;
+    padding: 0 !important;
+  }
+
+  /* Format the Markdown Questions for pure readability on A4 Paper */
+  .prose {
+    max-width: 100% !important;
+  }
+
+  .prose p,
+  .prose li,
+  .prose table {
+    color: #111827 !important;
+    /* Extremely dark gray/black */
+  }
+
+  /* Add nice page breaks between sections so questions don't split awkwardly */
+  .prose h2 {
+    page-break-before: always;
+    margin-top: 0 !important;
+    padding-top: 20px !important;
+    color: #000 !important;
+    border-bottom: 2px solid #ccc !important;
+  }
+
+  .prose h3 {
+    page-break-after: avoid;
+    color: #374151 !important;
+  }
+
+  .prose h4 {
+    page-break-after: avoid;
+    margin-top: 20px !important;
+    color: #2563eb !important;
+    /* Make Question titles distinct */
+  }
+
+  /* Prevent tables and code blocks from breaking in half across PDF pages */
+  .prose table,
+  .prose pre {
+    page-break-inside: avoid;
+    border: 1px solid #ddd !important;
+    background: #f9fafb !important;
+  }
+
+  /* Reset Chat Bubble padding for flat document feel */
+  .my-6.p-6.rounded-2xl {
+    box-shadow: none !important;
+    border: none !important;
+    background: transparent !important;
+    margin: 0 !important;
+    padding: 0 0 20px 0 !important;
+  }
+
+  /* =========================================
+     HANDWRITTEN NOTEBOOK MODE
+  ========================================= */
+  .print-handwritten {
+    background-color: transparent !important;
+    /* The hardware margin implies we rely entirely on HTML background bleed */
+    background-image: none !important;
+    min-height: 100vh !important;
+    padding: 0 !important;
+    /* Rely purely on @page for guaranteed margin clamping */
+  }
+
+  /* Force every single child element to inherit the warm background */
+  .print-handwritten * {
+    background-color: transparent !important;
+  }
+
+  /* Nuke any stray markdown blockquote borders (e.g. blue left border in prose) */
+  .print-handwritten blockquote {
+    border: none !important;
+    padding-left: 0 !important;
+    margin: 0 !important;
+    font-style: normal !important;
+  }
+
+  /* Core text style: Handwritten Violet-Blue Ink */
+  .print-handwritten .prose *,
+  .print-handwritten p,
+  .print-handwritten li,
+  .print-handwritten td {
+    font-family: var(--font-patrick), 'Patrick Hand', cursive !important;
+    color: #002395 !important;
+    line-height: 1.25em !important;
+    font-size: 1.35rem !important;
+    border: none !important;
+    font-weight: 400 !important;
+    margin-bottom: 0.5em !important;
+    /* Tighter native spacing */
+  }
+
+  /* Force bullet points (list markers) to be black ink */
+  .print-handwritten li::marker {
+    color: #1E1E1E !important;
+  }
+
+  /* Questions & Headings style: Thicker Black Ink */
+  .print-handwritten h1,
+  .print-handwritten h2,
+  .print-handwritten h3,
+  .print-handwritten h4,
+  .print-handwritten strong,
+  .print-handwritten b,
+  .print-handwritten th {
+    font-family: var(--font-patrick), 'Patrick Hand', cursive !important;
+    color: #1E1E1E !important;
+    font-weight: 400 !important;
+    margin-top: 1em !important;
+    margin-bottom: 0.25em !important;
+  }
+
+  .print-handwritten .prose h1 {
+    font-size: 2.2rem !important;
+    text-align: center;
+    border-bottom: 2px solid #1E1E1E !important;
+    border-radius: 255px 15px 225px 15px/15px 225px 15px 255px !important;
+    margin-bottom: 1rem !important;
+    padding-bottom: 0.5rem !important;
+    margin-top: 0 !important;
+    /* Eliminate start space */
+  }
+
+  .print-handwritten .prose h2,
+  .print-handwritten .prose h3 {
+    font-size: 1.8rem !important;
+    border: none !important;
+    text-decoration: underline !important;
+    text-decoration-thickness: 1px !important;
+    text-underline-offset: 4px !important;
+  }
+
+  .print-handwritten .prose h4 {
+    font-size: 1.5rem !important;
+  }
+
+  /* Hand-drawn Tables and Code Blocks */
+  .print-handwritten pre,
+  .print-handwritten table {
+    border: 2px solid #1E1E1E !important;
+    transform: none !important;
+    border-radius: 255px 15px 225px 15px/15px 225px 15px 255px !important;
+    margin: 1rem 0 !important;
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+
+  .print-handwritten th,
+  .print-handwritten td {
+    border: 1px solid #1E1E1E !important;
+    padding: 0.5rem !important;
+  }
+
+  /* Bolder, bigger table headers */
+  .print-handwritten th {
+    color: #1E1E1E !important;
+    font-size: 1.5rem !important;
+    -webkit-text-stroke: 0.5px #1E1E1E;
+    /* Artificial thicken since Patrick Hand isn't bold */
+    text-shadow: 0 0 1px rgba(30, 30, 30, 0.5);
+    /* Deepen density */
+  }
+
+  /* Make row headers (the first column of data) black ink as requested */
+  .print-handwritten td:first-child {
+    color: #1E1E1E !important;
+  }
+
+  .print-handwritten td {
+    color: #002395 !important;
+  }
+
+  .print-handwritten code {
+    font-family: inherit !important;
+    color: #002395 !important;
+  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+@layer utilities {
+  .animate-blob {
+    animation: blob 35s infinite alternate ease-in-out;
+  }
+
+  .animation-delay-2000 {
+    animation-delay: -5s;
+  }
+
+  .animation-delay-4000 {
+    animation-delay: -10s;
+  }
+}
+
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+
+  33% {
+    transform: translate(20px, -15px) scale(1.02);
+  }
+
+  66% {
+    transform: translate(-10px, 20px) scale(0.98);
+  }
+
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
 }
