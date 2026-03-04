@@ -155,7 +155,10 @@ export default function ExamDashboard() {
         body: JSON.stringify({ subjectId, urgency, examType, answerLength, targetGrade, explanationStyle, isAppend, targetUnit: newTargetUnit })
       })
 
-      if (!res.ok || !res.body) throw new Error('Failed to generate study plan')
+      if (!res.ok || !res.body) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to generate study plan');
+      }
 
       if (!isAppend) {
         setMessages([

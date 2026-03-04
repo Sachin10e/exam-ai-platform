@@ -80,7 +80,7 @@ REQUIREMENTS FOR QUALITY AND DYNAMIC FORMATTING:
 1. UNIT ISOLATION: You MUST only generate content for Unit ${targetUnit}. Do NOT generate anything for Unit ${targetUnit + 1} or any other unit.
 2. DISTINCT SECTIONS: separate Long Questions, Short Questions, and MCQs visually with headers.
 3. DYNAMIC ANATOMY: 
-   - EVERY Question MUST be distinctly separated by a horizontal rule \`---\`.
+   - EVERY Question MUST be distinctly separated by a horizontal rule \`---\`. You MUST leave a blank empty line before and after the rule.
    - EVERY Long Question MUST start with a large, bold H3 Markdown header strictly using the \`### \` syntax (e.g., \`### Question 1: What is the difference between... [${answerLength === 'Long' ? '10' : '5'} Marks]\`).
    - If a long question asks for "Differences", "Comparisons", or "Vs", you MUST output a STRICT Markdown Table. Your table MUST include the divider row (e.g., \`| Feature | A | B |\` followed exactly by \`|---|---|---|\`). DO NOT skip the divider row.
    - You MUST use rich formatting to explain concepts clearly: Use ASCII flowcharts, code blocks, step-by-step logic, bold keywords, and bulleted lists.
@@ -121,18 +121,24 @@ CRITICAL - USE THIS EXACT MARKDOWN TEMPLATE AS YOUR FRAMEWORK:
 
 ### SECTION 2: EXPECTED SHORT QUESTIONS (1-2 Marks)
 #### Q1: [Insert Short Question Here]
+
 A: [Insert completely plain text explanation here without bolding]
+
 ---
+
 #### Q2: [Insert Short Question Here]
 ... (Continue for all highly probable short questions)
 
 ### SECTION 3: EXPECTED MCQs
 #### MCQ 1: [Insert Question Here]
+
 - A) [Option A]
 - B) [Option B] ✅
 - C) [Option C]
 - D) [Option D]
+
 ---
+
 #### MCQ 2: [Insert Question Here]
 ... (Continue for all highly probable MCQs)
 `
