@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
 
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
         const model = genAI.getGenerativeModel({
-            model: "gemini-2.5-flash",
+            model: "gemini-flash-lite-latest",
             generationConfig: {
                 responseMimeType: "application/json",
             },
@@ -50,6 +50,6 @@ Output JSON EXACTLY adhering to this schema:
 
     } catch (error) {
         console.error("Error extracting flashcards:", error);
-        return NextResponse.json({ error: "Failed to extract flashcards" }, { status: 500 });
+        return NextResponse.json({ error: "Failed to extract flashcards", details: error instanceof Error ? error.message : String(error) }, { status: 500 });
     }
 }

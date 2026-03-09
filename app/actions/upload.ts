@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import pdfParse from 'pdf-parse'
 import mammoth from 'mammoth'
 import Tesseract from 'tesseract.js'
+import crypto from 'crypto'
 import { generateEmbedding } from '../../lib/ollama'
 
 const serviceSupabase = createClient(
@@ -86,14 +87,47 @@ export async function uploadPdfAction(formData: FormData) {
             .replace(/\n{3,}/g, '\n\n') // Normalize newlines
             .trim()
 
-        // 2. Insert Document Record
+        // 2. Hash computation for Deduplication
+        const fileHash = crypto.createHash('sha256').update(cleanText).digest('hex')
+        let hasFileHashCol = true;
+
+        // Safely probe if the DB has been migrated with file_hash
+        const { error: testErr } = await serviceSupabase.from('documents').select('file_hash').limit(1)
+        if (testErr && testErr.code === '42703') {
+            hasFileHashCol = false;
+        }
+
+        if (hasFileHashCol) {
+            const { data: searchDoc } = await serviceSupabase
+                .from('documents')
+                .select('id, subject_id')
+                .eq('file_hash', fileHash)
+                .limit(1)
+                .maybeSingle()
+
+            if (searchDoc) {
+                console.log(`[DEDUPE] Exact document match found for hash ${fileHash}. Bypassing chunking!`)
+                return {
+                    success: true,
+                    subjectId: searchDoc.subject_id,
+                    message: `Reused existing database chunks for ${file.name}`
+                }
+            }
+        }
+
+        // 3. Insert new Document Record
+        const insertPayload: any = {
+            subject_id: subjectId,
+            filename: file.name,
+            full_text: cleanText
+        }
+        if (hasFileHashCol) {
+            insertPayload.file_hash = fileHash
+        }
+
         const { data: docData, error: docError } = await serviceSupabase
             .from('documents')
-            .insert([{
-                subject_id: subjectId,
-                filename: file.name,
-                full_text: cleanText // Use cleanText for storage
-            }])
+            .insert([insertPayload])
             .select()
             .single()
 

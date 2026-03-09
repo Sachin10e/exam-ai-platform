@@ -55,18 +55,23 @@ UPLOADED KNOWLEDGE BASE CONTEXT:
 ${contextText ? contextText : 'No document context found for this query.'}
 `.trim()
 
-        // Convert OpenAI-style messages to Gemini format
-        const geminiMessages = messages.map((m: any) => ({
-            role: m.role === 'user' ? 'user' : 'model',
-            parts: [{ text: m.content }]
-        }))
+        // Collapse the entire conversational history into a single monolithic user prompt 
+        // to completely bypass Gemini's strict "User must start" and "Alternating turns only" rules.
+        const historyText = messages.map((m: any) => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n---NEXT MESSAGE---\n\n')
+
+        const geminiMessages = [
+            {
+                role: 'user',
+                parts: [{ text: `Here is the conversation history, followed by my new request. Do NOT duplicate any questions you have already generated in the ASSISTANT blocks.\n\n${historyText}` }]
+            }
+        ]
 
         // Add System instruction manually to the first message or use SystemInstruction field
         const { GoogleGenerativeAI } = require('@google/generative-ai')
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
 
         const model = genAI.getGenerativeModel({
-            model: "gemini-2.5-flash",
+            model: "gemini-flash-lite-latest",
             systemInstruction: systemPrompt,
             generationConfig: {
                 temperature: 0.3,

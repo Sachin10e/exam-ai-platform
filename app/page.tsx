@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { uploadPdfAction } from './actions/upload'
 import { createSubjectAction } from './actions/subjects'
-import { BookOpen, CheckCircle, FileText, UploadCloud, BrainCircuit, FileQuestion, GraduationCap, File as FileIcon, Loader2, Sparkles, ChevronRight, ArrowUp, ArrowDown, X, PanelLeftClose, PanelLeftOpen, PlusCircle } from 'lucide-react'
+import { BookOpen, CheckCircle, FileText, UploadCloud, BrainCircuit, FileQuestion, GraduationCap, File as FileIcon, Loader2, Sparkles, ChevronRight, ArrowUp, ArrowDown, X, PanelLeftClose, PanelLeftOpen, PlusCircle, History, Clock } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import clsx from 'clsx'
 import ReactMarkdown from 'react-markdown'
@@ -13,6 +13,9 @@ import rehypeKatex from 'rehype-katex'
 import rehypeHighlight from 'rehype-highlight'
 import 'katex/dist/katex.min.css'
 import 'highlight.js/styles/atom-one-dark.css'
+import FlashcardDeck, { Flashcard } from './components/FlashcardDeck'
+import MockExamModal, { ExamQuestion } from './components/MockExamModal'
+import { saveSession, getSessions, getSessionById, StudySessionMeta } from './actions/sessions'
 
 type Message = {
   role: 'user' | 'assistant'
@@ -73,7 +76,7 @@ export default function ExamDashboard() {
   const [chatInput, setChatInput] = useState('')
   const [isChatLoading, setIsChatLoading] = useState(false)
   const [targetUnit, setTargetUnit] = useState<number>(1)
-  const [isHandwritten, setIsHandwritten] = useState(false)
+  const [isHandwritten, setIsHandwritten] = useState(true)
   const [showBackToTop, setShowBackToTop] = useState(false)
   const [scrollDirection, setScrollDirection] = useState<'up' | 'down'>('up')
   const [isScrolling, setIsScrolling] = useState(false)
@@ -82,7 +85,39 @@ export default function ExamDashboard() {
   const endOfMessagesRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
+  // Flashcards State
+  const [showFlashcards, setShowFlashcards] = useState(false)
+  const [flashcards, setFlashcards] = useState<Flashcard[]>([])
+  const [isExtractingFlashcards, setIsExtractingFlashcards] = useState(false)
+
+  // History State
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
+  const [historySessions, setHistorySessions] = useState<StudySessionMeta[]>([])
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false)
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
+
+  // Mock Exam State
+  const [showExam, setShowExam] = useState(false)
+  const [examQuestions, setExamQuestions] = useState<ExamQuestion[]>([])
+  const [isExtractingExam, setIsExtractingExam] = useState(false)
+
   // Subject initializes lazily on first upload to prevent empty database rows
+
+  useEffect(() => {
+    getSessions().then(data => setHistorySessions(data))
+  }, [])
+
+  useEffect(() => {
+    if (hasGenerated && !isGenerating && !isChatLoading && messages.length > 0) {
+      const title = `Unit ${targetUnit}: ${urgency} (${examType})`
+      saveSession(title, messages, currentSessionId || undefined).then(res => {
+        if (res.success && res.data) {
+          if (!currentSessionId) setCurrentSessionId(res.data.id)
+          getSessions().then(data => setHistorySessions(data))
+        }
+      })
+    }
+  }, [isGenerating, isChatLoading])
 
   useEffect(() => {
     // Only auto-scroll to the bottom when explicitly loading manual chat messages, avoiding yanking during syllabus generation.
@@ -328,6 +363,60 @@ export default function ExamDashboard() {
     setIsChatLoading(false);
   }
 
+  const handleExtractFlashcards = async () => {
+    const aiMessages = messages.filter(m => m.role === 'assistant').map(m => m.content).join('\n\n');
+    if (!aiMessages) return;
+
+    setIsExtractingFlashcards(true);
+    try {
+      const response = await fetch('/api/extract-flashcards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unitText: aiMessages }),
+      });
+
+      if (!response.ok) throw new Error('Failed to extract flashcards');
+
+      const extractedCards = await response.json();
+      if (Array.isArray(extractedCards)) {
+        setFlashcards(extractedCards);
+        setShowFlashcards(true);
+      }
+    } catch (error) {
+      console.error(error);
+      alert('Failed to generate flashcards. Please try again.');
+    } finally {
+      setIsExtractingFlashcards(false);
+    }
+  };
+
+  const handleExtractExam = async () => {
+    const aiMessages = messages.filter(m => m.role === 'assistant').map(m => m.content).join('\n\n');
+    if (!aiMessages) return;
+
+    setIsExtractingExam(true);
+    try {
+      const response = await fetch('/api/generate-exam', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unitText: aiMessages }),
+      });
+
+      if (!response.ok) throw new Error('Failed to extract mock exam');
+
+      const extractedExam = await response.json();
+      if (Array.isArray(extractedExam)) {
+        setExamQuestions(extractedExam);
+        setShowExam(true);
+      }
+    } catch (error) {
+      console.error(error);
+      alert('Failed to generate mock exam. Please try again.');
+    } finally {
+      setIsExtractingExam(false);
+    }
+  };
+
   const handleScroll = () => {
     if (!scrollContainerRef.current) return
     const { scrollTop } = scrollContainerRef.current
@@ -360,7 +449,7 @@ export default function ExamDashboard() {
 
   return (
     <div className={clsx(
-      "flex h-screen print:h-auto print:overflow-visible bg-slate-950 print:bg-white text-slate-100 print:text-black font-sans overflow-hidden selection:bg-indigo-500/30 relative",
+      "flex h-screen print:h-auto print:block print:overflow-visible bg-slate-950 print:bg-[#fdfaf0] text-slate-100 print:text-[#1E1E1E] font-sans overflow-hidden selection:bg-indigo-500/30 relative",
       isHandwritten ? "print-handwritten" : ""
     )}>
 
@@ -502,7 +591,7 @@ export default function ExamDashboard() {
       </div>
 
       {/* MAIN AREA: TABS & CONTENT */}
-      <div className="flex-1 flex flex-col relative z-10 bg-transparent">
+      <div className="flex-1 flex flex-col print:block relative z-10 bg-transparent">
 
         {/* Loading Overlay */}
         <AnimatePresence>
@@ -561,117 +650,149 @@ export default function ExamDashboard() {
                 <div className="h-8 w-1 bg-indigo-500 rounded-full"></div>
                 <h3 className="text-xl md:text-2xl font-bold text-slate-100 tracking-tight">Active Survival Plan</h3>
               </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setIsHistoryOpen(!isHistoryOpen)}
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-800/80 hover:bg-slate-700 rounded-lg text-slate-300 font-medium border border-slate-700 transition-colors shadow-sm text-sm"
+                >
+                  <History className="w-4 h-4" />
+                  History
+                </button>
+              </div>
             </div>
 
             {/* Chat/Markdown Feed */}
             <div
-              className="flex-1 overflow-y-auto print:overflow-visible print:h-auto px-6 py-12 md:px-12 print:px-0 print:py-0 scroll-smooth custom-scrollbar relative"
+              className="flex-1 overflow-y-auto print:overflow-visible print:block print:h-auto px-6 py-12 md:px-12 print:px-0 print:py-0 scroll-smooth custom-scrollbar relative"
               ref={scrollContainerRef}
               onScroll={handleScroll}
             >
-              <div className="max-w-4xl 2xl:max-w-5xl mx-auto pb-40 print:max-w-none print:w-full print:mx-0 print:pb-0 print:gap-6 flex flex-col gap-10">
-                {messages.map((m, idx) => {
-                  let displayContent = m.content || '*Incoming transmission...*';
+              <div className="max-w-4xl 2xl:max-w-5xl mx-auto pb-40 print:max-w-none print:w-full print:mx-0 print:pb-0 print:block flex flex-col gap-10 print:gap-0">
+                <table className="w-full border-collapse !border-none !bg-transparent print:table block">
+                  <thead className="table-header-group !border-none !bg-transparent hidden print:table-header-group">
+                    <tr>
+                      <td className="!border-none !bg-transparent p-0">
+                        <div className="h-[2.5cm] w-full invisible"></div>
+                      </td>
+                    </tr>
+                  </thead>
+                  <tfoot className="table-footer-group !border-none !bg-transparent hidden print:table-footer-group">
+                    <tr>
+                      <td className="!border-none !bg-transparent p-0">
+                        <div className="h-[2.5cm] w-full invisible"></div>
+                      </td>
+                    </tr>
+                  </tfoot>
+                  <tbody className="!border-none !bg-transparent block md:table-row-group w-full">
+                    {messages.map((m, idx) => {
+                      let displayContent = m.content || '*Incoming transmission...*';
 
-                  // Dynamic sanitization for authentic handwritten feel
-                  if (isHandwritten) {
-                    // Start directly from Unit 1 by collapsing the entire Survival Plan Intro Message entirely
-                    displayContent = displayContent.replace(/# 🎓 Survival Plan Generated[\s\S]*?deeper detail\./, '');
+                      // Dynamic sanitization for authentic handwritten feel
+                      if (isHandwritten) {
+                        // Start directly from Unit 1 by collapsing the entire Survival Plan Intro Message entirely
+                        displayContent = displayContent.replace(/# 🎓 Survival Plan Generated[\s\S]*?deeper detail\./, '');
 
-                    // Strip all emojis EXCEPT checks and crosses (✅, ✔️, ❌) which are needed to tick MCQs
-                    displayContent = displayContent.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{2704}\u{2706}-\u{2713}\u{2715}-\u{274B}\u{274D}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{1F1E6}-\u{1F1FF}\u{1F900}-\u{1F9FF}\u{1FA70}-\u{1FAFF}\u{1F400}-\u{1F4FF}\u{2B50}]/gu, '');
-                    // Strip lines containing generic search/video links
-                    displayContent = displayContent.replace(/^.*Search Web.*$/gmi, '');
-                    displayContent = displayContent.replace(/^.*Watch video.*$/gmi, '');
-                    displayContent = displayContent.replace(/^.*youtube.*$/gmi, '');
+                        // Strip all emojis EXCEPT checks and crosses (✅, ✔️, ❌) which are needed to tick MCQs
+                        displayContent = displayContent.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{2704}\u{2706}-\u{2713}\u{2715}-\u{274B}\u{274D}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{1F1E6}-\u{1F1FF}\u{1F900}-\u{1F9FF}\u{1FA70}-\u{1FAFF}\u{1F400}-\u{1F4FF}\u{2B50}]/gu, '');
+                        // Strip lines containing generic search/video links
+                        displayContent = displayContent.replace(/^.*Search Web.*$/gmi, '');
+                        displayContent = displayContent.replace(/^.*Watch video.*$/gmi, '');
+                        displayContent = displayContent.replace(/^.*youtube.*$/gmi, '');
 
-                    // Replace green ✅ with a simple unicode ✔️ (which renders natively black)
-                    displayContent = displayContent.replace(/✅/gi, '✔');
+                        // Replace green ✅ with a simple bold unicode ✔️ (which renders natively black)
+                        displayContent = displayContent.replace(/✅/gi, '**✔**');
 
-                    // Make MCQ option lines (e.g., "- A) ...") drop the bullet point and bold the letter to act as a black ink header
-                    displayContent = displayContent.replace(/^[ \t]*[-\*][ \t]+([A-E][\.\)])/gmi, '\n**$1**');
+                        // Make MCQ option lines (e.g., "- A) ...") drop the bullet point and bold the letter to act as a black ink header
+                        displayContent = displayContent.replace(/^[ \t]*[-\*][ \t]+([A-E][\.\)])/gmi, '\n**$1**');
 
-                    // Force headers for A: and Pro-Tip: to make them render in Black Ink instead of Blue
-                    displayContent = displayContent.replace(/(?:^|\n)[ \t]*(A:|Pro-Tip:)/gmi, '\n**$1**');
+                        // Force headers for A: and Pro-Tip: to make them render in Black Ink instead of Blue
+                        displayContent = displayContent.replace(/(?:^|\n)[ \t]*(A:|Pro-Tip:)/gmi, '\n**$1**');
 
-                    // Clean up potential extra newlines
-                    displayContent = displayContent.replace(/\n\s*\n/g, '\n\n').trim();
-                    if (!displayContent) return null; // If intro was the only thing, don't render an empty box!
-                  }
+                        // Clean up potential extra newlines
+                        displayContent = displayContent.replace(/\n\s*\n/g, '\n\n').trim();
+                        if (!displayContent) return null; // If intro was the only thing, don't render an empty box!
+                      }
 
-                  return (
-                    <div key={idx} id={`message-${idx}`} className={clsx("flex font-sans print:block print:page-break-inside-avoid", m.role === 'user' ? "justify-end print:hidden" : "justify-start")}>
-                      {m.role === 'user' ? (
-                        <div className="max-w-[85%] bg-indigo-600 text-white p-5 rounded-3xl rounded-tr-sm shadow-md text-lg leading-relaxed antialiased ml-auto">
-                          {m.content}
-                        </div>
-                      ) : (
-                        <div className="w-full text-slate-200 antialiased flex flex-col gap-6">
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm, remarkMath]}
-                            rehypePlugins={[rehypeKatex, rehypeHighlight]}
-                            components={{
-                              h1: ({ node, ...props }) => <h1 className="text-4xl md:text-5xl font-black text-slate-100 tracking-tight mt-12 mb-6 border-b border-slate-800 pb-4" {...props} />,
-                              h2: ({ node, ...props }) => <h2 className="text-2xl md:text-3xl font-bold text-slate-100 mt-10 mb-4" {...props} />,
-                              h3: ({ node, ...props }) => <h3 className="text-xl md:text-2xl font-bold text-slate-200 mt-10 mb-6 bg-slate-900/60 p-4 border-l-4 border-indigo-500 rounded-r-lg uppercase tracking-wider" {...props} />,
-                              h4: ({ node, ...props }) => <h4 className="text-xl md:text-[1.35rem] font-bold text-slate-100 mt-8 mb-3 tracking-tight" {...props} />,
-                              p: ({ node, ...props }) => <p className="text-lg md:text-[1.125rem] leading-[1.8] text-slate-300 md:mb-5 tracking-wide" {...props} />,
-                              ul: ({ node, ...props }) => <ul className="list-disc leading-[1.8] text-lg md:text-[1.125rem] pl-8 mb-6 space-y-3 text-slate-300" {...props} />,
-                              ol: ({ node, ...props }) => <ol className="list-decimal leading-[1.8] text-lg md:text-[1.125rem] pl-8 mb-6 space-y-3 text-slate-300" {...props} />,
-                              li: ({ node, ...props }) => <li className="pl-2" {...props} />,
-                              strong: ({ node, ...props }) => <strong className="font-bold text-white" {...props} />,
-                              a: ({ node, ...props }) => <a className="text-indigo-400 font-medium hover:text-indigo-300 hover:underline underline-offset-4 transition-colors" target="_blank" rel="noopener noreferrer" {...props} />,
-                              blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-slate-600 pl-4 italic text-slate-400 my-6 bg-slate-900/30 py-2 pr-4 rounded-r-lg" {...props} />,
-                              hr: ({ node, ...props }) => <hr className="border-slate-800 border-t-2 my-12" {...props} />,
-                              table: ({ node, ...props }) => (
-                                <div className="overflow-x-auto my-8 rounded-xl ring-1 ring-slate-700/50 bg-slate-900/20">
-                                  <table className="w-full text-left border-collapse" {...props} />
+                      return (
+                        <tr key={idx} className="block md:table-row w-full print:page-break-inside-avoid print:break-inside-avoid">
+                          <td className="!border-none !bg-transparent p-0 align-top block md:table-cell w-full print:pt-3 print:pb-4">
+                            <div id={`message-${idx}`} className={clsx("flex font-sans print:block", m.role === 'user' ? "justify-end print:hidden" : "justify-start mb-10 print:mb-0")}>
+                              {m.role === 'user' ? (
+                                <div className="max-w-[85%] bg-indigo-600 text-white p-5 rounded-3xl rounded-tr-sm shadow-md text-lg leading-relaxed antialiased ml-auto">
+                                  {m.content}
                                 </div>
-                              ),
-                              thead: ({ node, ...props }) => <thead className="bg-slate-800/80 border-b border-slate-700 text-slate-300 text-sm uppercase tracking-wider" {...props} />,
-                              th: ({ node, ...props }) => <th className="px-6 py-4 font-bold" {...props} />,
-                              td: ({ node, ...props }) => <td className="px-6 py-4 border-b border-slate-800/50 text-slate-300 bg-slate-900/30" {...props} />,
-                              tr: ({ node, ...props }) => <tr className="hover:bg-slate-800/20 transition-colors" {...props} />,
-                              pre: ({ node, children, ...props }: any) => {
-                                let language = 'Code'
-                                const childArray = React.Children.toArray(children)
-                                const codeElement = childArray[0]
-                                if (React.isValidElement(codeElement)) {
-                                  const childProps: any = codeElement.props || {}
-                                  if (childProps.className) {
-                                    const match = /language-(\w+)/.exec(childProps.className)
-                                    if (match) language = match[1]
-                                  }
-                                  return (
-                                    <div className="my-8 rounded-xl overflow-hidden ring-1 ring-slate-700/50 shadow-2xl bg-[#0d1117]">
-                                      <div className="px-4 py-3 bg-slate-800/80 border-b border-slate-700/50 text-xs text-slate-400 font-mono uppercase flex justify-between items-center tracking-wider">
-                                        <span>{language}</span>
-                                      </div>
-                                      <pre className="p-5 overflow-x-auto text-[0.95rem] leading-relaxed" {...props}>
-                                        {React.cloneElement(codeElement, { 'data-block': true } as any)}
-                                      </pre>
-                                    </div>
-                                  )
-                                }
-                                return <pre {...props}>{children}</pre>
-                              },
-                              code: ({ node, className, children, "data-block": isBlock, ...props }: any) => {
-                                if (isBlock || (className && className.includes('language-'))) {
-                                  return <code className={className} {...props}>{children}</code>
-                                }
-                                return (
-                                  <code className="bg-slate-800/80 text-indigo-300 px-2 py-1 rounded-md font-mono text-[0.9em] border border-slate-700/50" {...props}>
-                                    {children}
-                                  </code>
-                                )
-                              }
-                            }}
-                          >{displayContent}</ReactMarkdown>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
+                              ) : (
+                                <div className="w-full text-slate-200 antialiased flex flex-col gap-6">
+                                  <ReactMarkdown
+                                    remarkPlugins={[remarkGfm, remarkMath]}
+                                    rehypePlugins={[rehypeKatex, rehypeHighlight]}
+                                    components={{
+                                      h1: ({ node, ...props }) => <h1 className="text-4xl md:text-5xl font-black text-slate-100 tracking-tight mt-12 mb-6 border-b border-slate-800 pb-4" {...props} />,
+                                      h2: ({ node, ...props }) => <h2 className="text-2xl md:text-3xl font-bold text-slate-100 mt-10 mb-4" {...props} />,
+                                      h3: ({ node, ...props }) => <h3 className="text-xl md:text-2xl font-bold text-slate-200 mt-10 mb-6 bg-slate-900/60 p-4 border-l-4 border-indigo-500 rounded-r-lg uppercase tracking-wider" {...props} />,
+                                      h4: ({ node, ...props }) => <h4 className="text-xl md:text-[1.35rem] font-bold text-slate-100 mt-8 mb-3 tracking-tight" {...props} />,
+                                      p: ({ node, ...props }) => <p className="text-lg md:text-[1.125rem] leading-[1.8] text-slate-300 md:mb-5 tracking-wide" {...props} />,
+                                      ul: ({ node, ...props }) => <ul className="list-disc leading-[1.8] text-lg md:text-[1.125rem] pl-8 mb-6 space-y-3 text-slate-300" {...props} />,
+                                      ol: ({ node, ...props }) => <ol className="list-decimal leading-[1.8] text-lg md:text-[1.125rem] pl-8 mb-6 space-y-3 text-slate-300" {...props} />,
+                                      li: ({ node, ...props }) => <li className="pl-2" {...props} />,
+                                      strong: ({ node, ...props }) => <strong className="font-bold text-white" {...props} />,
+                                      a: ({ node, ...props }) => <a className="text-indigo-400 font-medium hover:text-indigo-300 hover:underline underline-offset-4 transition-colors" target="_blank" rel="noopener noreferrer" {...props} />,
+                                      blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-slate-600 pl-4 italic text-slate-400 my-6 bg-slate-900/30 py-2 pr-4 rounded-r-lg" {...props} />,
+                                      hr: ({ node, ...props }) => <hr className="border-slate-800 border-t-2 my-12" {...props} />,
+                                      table: ({ node, ...props }) => (
+                                        <div className="overflow-x-auto my-8 rounded-xl ring-1 ring-slate-700/50 bg-slate-900/20">
+                                          <table className="w-full text-left border-collapse" {...props} />
+                                        </div>
+                                      ),
+                                      thead: ({ node, ...props }) => <thead className="bg-slate-800/80 border-b border-slate-700 text-slate-300 text-sm uppercase tracking-wider" {...props} />,
+                                      th: ({ node, ...props }) => <th className="px-6 py-4 font-bold" {...props} />,
+                                      td: ({ node, ...props }) => <td className="px-6 py-4 border-b border-slate-800/50 text-slate-300 bg-slate-900/30" {...props} />,
+                                      tr: ({ node, ...props }) => <tr className="hover:bg-slate-800/20 transition-colors" {...props} />,
+                                      pre: ({ node, children, ...props }: any) => {
+                                        let language = 'Code'
+                                        const childArray = React.Children.toArray(children)
+                                        const codeElement = childArray[0]
+                                        if (React.isValidElement(codeElement)) {
+                                          const childProps: any = codeElement.props || {}
+                                          if (childProps.className) {
+                                            const match = /language-(\w+)/.exec(childProps.className)
+                                            if (match) language = match[1]
+                                          }
+                                          return (
+                                            <div className="my-8 rounded-xl overflow-hidden ring-1 ring-slate-700/50 shadow-2xl bg-[#0d1117]">
+                                              <div className="px-4 py-3 bg-slate-800/80 border-b border-slate-700/50 text-xs text-slate-400 font-mono uppercase flex justify-between items-center tracking-wider">
+                                                <span>{language}</span>
+                                              </div>
+                                              <pre className="p-5 overflow-x-auto text-[0.95rem] leading-relaxed" {...props}>
+                                                {React.cloneElement(codeElement, { 'data-block': true } as any)}
+                                              </pre>
+                                            </div>
+                                          )
+                                        }
+                                        return <pre {...props}>{children}</pre>
+                                      },
+                                      code: ({ node, className, children, "data-block": isBlock, ...props }: any) => {
+                                        if (isBlock || (className && className.includes('language-'))) {
+                                          return <code className={className} {...props}>{children}</code>
+                                        }
+                                        return (
+                                          <code className="bg-slate-800/80 text-indigo-300 px-2 py-1 rounded-md font-mono text-[0.9em] border border-slate-700/50" {...props}>
+                                            {children}
+                                          </code>
+                                        )
+                                      }
+                                    }}
+                                  >{displayContent}</ReactMarkdown>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
 
                 {/* Inline Action Buttons at End of Feed */}
                 {!isGenerating && !isChatLoading && messages.length > 0 && (
@@ -696,7 +817,22 @@ export default function ExamDashboard() {
                     </div>
 
                     {/* Exporter Controls */}
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-2 bg-slate-900/50 p-4 rounded-2xl border border-slate-700/50 w-full max-w-lg">
+                    <div className="flex flex-col sm:flex-row items-stretch justify-center gap-4 mt-2 bg-slate-900/50 p-4 rounded-2xl border border-slate-700/50 w-full max-w-2xl mx-auto">
+                      <button
+                        onClick={handleExtractFlashcards}
+                        disabled={isExtractingFlashcards || messages.length === 0}
+                        className="flex items-center justify-center gap-2 px-6 py-3.5 font-bold rounded-xl border transition-all font-sans flex-1 bg-fuchsia-600 hover:bg-fuchsia-500 text-white border-fuchsia-500 shadow-[0_0_20px_rgba(192,38,211,0.3)] disabled:opacity-50 print:hidden"
+                      >
+                        {isExtractingFlashcards ? <Loader2 className="w-5 h-5 animate-spin" /> : <span>📇 Study Flashcards</span>}
+                      </button>
+
+                      <button
+                        onClick={handleExtractExam}
+                        disabled={isExtractingExam || messages.length === 0}
+                        className="flex items-center justify-center gap-2 px-6 py-3.5 font-bold rounded-xl border transition-all font-sans flex-1 bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)] disabled:opacity-50 print:hidden"
+                      >
+                        {isExtractingExam ? <Loader2 className="w-5 h-5 animate-spin" /> : <span>📝 Mock Exam</span>}
+                      </button>
                       <label className="flex items-center cursor-pointer gap-3 min-w-[200px]">
                         <div className="relative">
                           <input type="checkbox" className="sr-only" checked={isHandwritten} onChange={() => setIsHandwritten(!isHandwritten)} />
@@ -768,6 +904,67 @@ export default function ExamDashboard() {
 
       </div>
 
+      {/* RIGHT SIDEBAR: HISTORY */}
+      <div className={clsx(
+        "bg-slate-900/80 backdrop-blur-3xl border-l border-slate-700/30 flex flex-col z-50 shadow-2xl absolute right-0 top-0 bottom-0 transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] print:hidden",
+        isHistoryOpen ? "w-80 p-6 opacity-100 translate-x-0" : "w-0 p-0 overflow-hidden border-none opacity-0 translate-x-full invisible"
+      )}>
+        <div className="flex justify-between items-center mb-8">
+          <h2 className="text-xl flex items-center gap-2 font-bold text-slate-200 tracking-tight whitespace-nowrap">
+            <History className="w-5 h-5 text-indigo-400" />
+            Study History
+          </h2>
+          <button onClick={() => setIsHistoryOpen(false)} className="text-slate-500 hover:text-rose-400 p-1">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
+          {historySessions.length === 0 ? (
+            <div className="text-slate-500 text-sm text-center mt-10">No saved sessions yet.</div>
+          ) : (
+            historySessions.map(session => (
+              <button
+                key={session.id}
+                disabled={isHistoryLoading || isGenerating}
+                onClick={async () => {
+                  setIsHistoryLoading(true)
+                  const fullSession = await getSessionById(session.id)
+                  if (fullSession) {
+                    setMessages(fullSession.messages)
+                    setCurrentSessionId(fullSession.id)
+                    setHasGenerated(true)
+                    setIsHistoryOpen(false)
+                  }
+                  setIsHistoryLoading(false)
+                }}
+                className={clsx(
+                  "w-full text-left p-4 rounded-xl border transition-all flex flex-col gap-2 group",
+                  currentSessionId === session.id
+                    ? "bg-indigo-600/20 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.15)]"
+                    : "bg-slate-800/40 border-slate-700/50 hover:bg-slate-800 hover:border-slate-600"
+                )}
+              >
+                <div className="font-bold text-slate-200 text-sm truncate w-full">{session.title}</div>
+                <div className="text-xs text-slate-500 flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  {new Date(session.created_at).toLocaleDateString()}
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Flashcard Overlay */}
+      {showFlashcards && (
+        <FlashcardDeck flashcards={flashcards} onClose={() => setShowFlashcards(false)} />
+      )}
+
+      {/* Mock Exam Overlay */}
+      {showExam && (
+        <MockExamModal questions={examQuestions} onClose={() => setShowExam(false)} />
+      )}
     </div>
   )
 }

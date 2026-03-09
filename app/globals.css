@@ -26,8 +26,8 @@
 
 @page {
   size: auto;
-  margin: 1.5cm !important;
-  /* Perfect uniform hardware margin for every page */
+  margin: 0 !important;
+  /* 0 margin allows background color to instantly bleed to the physical edge */
 }
 
 /* =========================================
@@ -137,12 +137,15 @@
      HANDWRITTEN NOTEBOOK MODE
   ========================================= */
   .print-handwritten {
-    background-color: transparent !important;
-    /* The hardware margin implies we rely entirely on HTML background bleed */
+    background-color: #fdfaf0 !important;
+    /* Locks the color to bleed fully into the edge */
     background-image: none !important;
     min-height: 100vh !important;
-    padding: 0 !important;
-    /* Rely purely on @page for guaranteed margin clamping */
+    padding: 1.5cm !important;
+    /* Software margin for the text */
+    -webkit-box-decoration-break: clone !important;
+    /* Perfect repetition of the padding on each sliced page */
+    box-decoration-break: clone !important;
   }
 
   /* Force every single child element to inherit the warm background */
@@ -153,9 +156,25 @@
   /* Nuke any stray markdown blockquote borders (e.g. blue left border in prose) */
   .print-handwritten blockquote {
     border: none !important;
+    border-left-width: 0 !important;
     padding-left: 0 !important;
     margin: 0 !important;
     font-style: normal !important;
+  }
+
+  /* Prevent text from slicing horizontally across physical printed page breaks */
+  .print-handwritten p,
+  .print-handwritten li,
+  .print-handwritten h1,
+  .print-handwritten h2,
+  .print-handwritten h3,
+  .print-handwritten h4,
+  .print-handwritten table,
+  .print-handwritten tr,
+  .print-handwritten pre,
+  .print-handwritten blockquote {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   /* Core text style: Handwritten Violet-Blue Ink */
@@ -276,6 +295,14 @@ body {
 
   .animation-delay-4000 {
     animation-delay: -10s;
+  }
+
+  .preserve-3d {
+    transform-style: preserve-3d;
+  }
+
+  .backface-hidden {
+    backface-visibility: hidden;
   }
 }
 

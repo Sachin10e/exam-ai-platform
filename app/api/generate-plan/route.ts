@@ -11,7 +11,7 @@ const OLLAMA_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434'
 
 export async function POST(req: Request) {
     try {
-        const { subjectId, urgency, examType, answerLength, targetGrade = 'Top', explanationStyle = 'Academic', targetUnit = 1 } = await req.json()
+        const { subjectId, urgency, examType, midType, answerLength, targetGrade = 'Top', explanationStyle = 'Academic', targetUnit = 1 } = await req.json()
 
         if (!subjectId) {
             return NextResponse.json({ error: 'Subject ID is required' }, { status: 400 })
@@ -43,6 +43,16 @@ export async function POST(req: Request) {
             ? 'Use highly accessible, simple language, and avoid dense jargon where possible. Break every single paragraph down into highly readable bullet points. Do NOT use childish ELI5 analogies.'
             : 'Use strictly formal academic language, industry-standard jargon, and highly rigorous technical definitions. Structure answers with pristine layout: heavy use of bold terms, structured lists, and blank lines between thoughts.'
 
+        // --- CONSTRUCT THE SYSTEM PROMPT ---
+        let boundInstructions = '';
+        if (examType === 'Mid') {
+            if (midType === 'Mid 1') {
+                boundInstructions = 'CRITICAL REQUIREMENT: The user is only studying for "Mid 1". You MUST ONLY draw questions and contextual bounds from Unit 1 up to the exact halfway point of Unit 3. DO NOT include late Unit 3, Unit 4, or Unit 5 material.';
+            } else if (midType === 'Mid 2') {
+                boundInstructions = 'CRITICAL REQUIREMENT: The user is only studying for "Mid 2". You MUST ONLY draw questions and contextual bounds from the second half of Unit 3 through Unit 5. IGNORE Unit 1 and Unit 2 completely.';
+            }
+        }
+
         const prompt = `
 Act as an elite University Examiner and Master Tutor.
 You are tasked with generating a high-yield, extremely rigorous Exam Study Plan smoothly and continuously.
@@ -59,6 +69,7 @@ ${contextText || '🚨 WARNING: NO TEXT CONTEXT WAS FOUND IN THE UPLOADED DOCUME
 
 YOUR MISSION:
 Analyze the syllabus context deeply. YOU MUST NOT USE GENERAL INTERNET KNOWLEDGE. YOU MUST NOT GUESS.
+${boundInstructions}
 Every single expected question you generate MUST BE ROOTED EXACTLY in the provided Syllabus Text below.
 If the syllabus is about "Compiler Design", do NOT generate questions about "General Research".
 If the provided context is empty or entirely irrelevant, output EXACTLY this string and nothing else:
@@ -146,7 +157,7 @@ A: [Insert completely plain text explanation here without bolding]
         // 4. GENERATE WITH GEMINI
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!) // Added '!' for non-null assertion
         const model = genAI.getGenerativeModel({
-            model: "gemini-2.5-flash",
+            model: "gemini-flash-lite-latest",
             generationConfig: {
                 temperature: 0.1,
                 maxOutputTokens: 8000,
