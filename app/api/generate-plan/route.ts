@@ -1,3 +1,5 @@
+export const maxDuration = 300;
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { v4 as uuidv4 } from 'uuid'
@@ -97,45 +99,46 @@ REQUIREMENTS FOR QUALITY AND DYNAMIC FORMATTING:
    - You MUST use rich formatting to explain concepts clearly: Use ASCII flowcharts, code blocks, step-by-step logic, bold keywords, and bulleted lists.
 4. SEPARATE RESOURCES AND TIPS on new lines (FOR LONG QUESTIONS ONLY):
    - Every major Answer MUST end with a short "💡 Pro-Tip:" or "🧠 Mnemonic:" on its own distinct line.
-   - On a NEW LINE, append a Web Reference Link: \`[🌍 Search Web for {Exact Topic}](https://www.google.com/search?q={URL_ENCODED_TOPIC})\`
-   - On a NEW LINE, append a YouTube Link: \`[📺 Watch YouTube Tutorial](https://www.youtube.com/results?search_query={URL_ENCODED_TOPIC})\`
-   - DO NOT append "Explain like I'm 5" to the queries. Keep them perfectly academic and exact.
-5. TYPOGRAPHY RESTRICTIONS (STRICT):
-   - CRITICAL QUESTION SIZING: For EVERY SINGLE QUESTION across ALL 3 Sections, you MUST start the line with exactly '#### ' (Markdown Header 4) to ensure uniform font size. Examples: '#### Question 1: ', '#### Q1: ', '#### MCQ 1: '.
-   - CRITICAL ANSWER SIZING (SECTION 2): You MUST NOT use ANY Markdown headers ('#', '##', '###', '####') for the answers in Section 2. You MUST NOT use ANY asterisks ('**'). Prefix the answer text strictly with 'A: ' rather than 'Answer:'. It MUST be exactly: 'A: [Plain normal weight text]'.
-   - MULTIPLE CHOICE FORMAT: Place the ✅ tick mark INLINE next to the correct option string. DO NOT make a separate "Correct Answer" line.
+   - On a NEW LINE, append a Web Reference Link: \`[🌍 Search Web for {Insert Topic Formatted as Plain Text}](https://www.google.com/search?q={INSERT_URL_ENCODED_TOPIC_HERE})\`
+   - On a NEW LINE, append a YouTube Link: \`[📺 Watch YouTube Tutorial](https://www.youtube.com/results?search_query={INSERT_URL_ENCODED_TOPIC_HERE})\`
+            - CRITICAL: You MUST replace \`{INSERT_URL_ENCODED_TOPIC_HERE}\` with actual URL - encoded strings(e.g. \`Finite+Automata+Central+Concepts\`).DO NOT output the literal string\`{INSERT_URL_ENCODED_TOPIC_HERE}\`.
+   - DO NOT append "Explain like I'm 5" to the queries.Keep them perfectly academic and exact.
+5. TYPOGRAPHY RESTRICTIONS(STRICT):
+        - CRITICAL QUESTION SIZING: For EVERY SINGLE QUESTION across ALL 3 Sections, you MUST start the line with exactly '#### '(Markdown Header 4) to ensure uniform font size.Examples: '#### Question 1: ', '#### Q1: ', '#### MCQ 1: '.
+   - CRITICAL ANSWER SIZING(SECTION 2): You MUST NOT use ANY Markdown headers('#', '##', '###', '####') for the answers in Section 2. You MUST NOT use ANY asterisks('**').Prefix the answer text strictly with 'A: ' rather than 'Answer:'.It MUST be exactly: 'A: [Plain normal weight text]'.
+   - MULTIPLE CHOICE FORMAT: Place the ✅ tick mark INLINE next to the correct option string.DO NOT make a separate "Correct Answer" line.
 
-CRITICAL - USE THIS EXACT MARKDOWN TEMPLATE AS YOUR FRAMEWORK:
+            CRITICAL - USE THIS EXACT MARKDOWN TEMPLATE AS YOUR FRAMEWORK:
 ## 📘 Unit ${targetUnit} Exhaustive Plan
 
 ### SECTION 1: LONG EXPECTED QUESTIONS
-#### Question 1: [Insert Question Here] [${answerLength === 'Long' ? '10' : '5'} Marks]
+#### Question 1: [Insert Question Here][${answerLength === 'Long' ? '10' : '5'} Marks]
 
-**Answer:**
-[Insert Paragraphs or Bullet Points with easy, understandable examples]
+** Answer:**
+            [Insert concise, highly exam - specific bullet points.Stay strictly within the syllabus scope and structure the answer to efficiently secure maximum marks.]
 
-| Feature | Point A | Point B |
-|---|---|---|
+            | Feature | Point A | Point B |
+| ---| ---| ---|
 | Example | Data | Data |
 
-[Optional ASCII Flowcharts/Diagrams if applicable]
+                [Optional ASCII Flowcharts / Diagrams if applicable]
 
-💡 Pro-Tip: [Insert tip]
+💡 Pro - Tip: [Insert tip]
 
-[🌍 Search Web for Concept](URL)
+        [🌍 Search Web for { Exact Topic Name }](https://www.google.com/search?q={URL_ENCODED_TOPIC})
 
-[📺 Watch YouTube Tutorial](URL)
+            [📺 Watch YouTube Tutorial for { Exact Topic Name }](https://www.youtube.com/results?search_query={URL_ENCODED_TOPIC})
 
 ---
-#### Question 2: [Insert Question Here] [${answerLength === 'Long' ? '10' : '5'} Marks]
+#### Question 2: [Insert Question Here][${answerLength === 'Long' ? '10' : '5'} Marks]
 ... (Continue for all long expected questions in Unit ${targetUnit})
 
-### SECTION 2: EXPECTED SHORT QUESTIONS (1-2 Marks)
+### SECTION 2: EXPECTED SHORT QUESTIONS(1 - 2 Marks)
 #### Q1: [Insert Short Question Here]
 
-A: [Insert completely plain text explanation here without bolding]
+        A: [Insert completely plain text explanation here without bolding]
 
----
+        ---
 
 #### Q2: [Insert Short Question Here]
 ... (Continue for all highly probable short questions)
@@ -143,21 +146,21 @@ A: [Insert completely plain text explanation here without bolding]
 ### SECTION 3: EXPECTED MCQs
 #### MCQ 1: [Insert Question Here]
 
-- A) [Option A]
-- B) [Option B] ✅
-- C) [Option C]
-- D) [Option D]
+            - A)[Option A]
+                - B)[Option B] ✅
+        - C)[Option C]
+            - D)[Option D]
 
----
+        ---
 
 #### MCQ 2: [Insert Question Here]
 ... (Continue for all highly probable MCQs)
-`
+        `
 
         // 4. GENERATE WITH GEMINI
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!) // Added '!' for non-null assertion
         const model = genAI.getGenerativeModel({
-            model: "gemini-flash-lite-latest",
+            model: "gemini-2.5-flash",
             generationConfig: {
                 temperature: 0.1,
                 maxOutputTokens: 8000,

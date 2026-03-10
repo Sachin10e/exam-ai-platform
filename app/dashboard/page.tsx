@@ -11,6 +11,17 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
 
   // Check session
+  async function fetchSubjects(token: string) {
+    const res = await fetch('/api/subjects', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    const data = await res.json()
+    setSubjects(data.data || [])
+  }
+
   useEffect(() => {
     async function init() {
       const {
@@ -28,17 +39,6 @@ export default function Dashboard() {
 
     init()
   }, [router])
-
-  async function fetchSubjects(token: string) {
-    const res = await fetch('/api/subjects', {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-
-    const data = await res.json()
-    setSubjects(data.data || [])
-  }
 
   async function createSubject() {
     const {
@@ -112,11 +112,11 @@ export default function Dashboard() {
             className="border p-3 flex justify-between items-center"
           >
             <span
-  onClick={() => router.push(`/subjects/${s.id}`)}
-  className="cursor-pointer text-blue-600"
->
-  {s.name}
-</span>
+              onClick={() => router.push(`/subjects/${s.id}`)}
+              className="cursor-pointer text-blue-600"
+            >
+              {s.name}
+            </span>
             <button
               onClick={() => deleteSubject(s.id)}
               className="text-red-500"

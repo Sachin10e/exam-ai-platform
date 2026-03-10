@@ -14,6 +14,17 @@ export default function SubjectPage() {
   const [content, setContent] = useState('')
   const [loading, setLoading] = useState(true)
 
+  async function fetchNotes(token: string) {
+    const res = await fetch(`/api/notes?subject_id=${subjectId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    const data = await res.json()
+    setNotes(data.data || [])
+  }
+
   useEffect(() => {
     async function init() {
       const {
@@ -31,17 +42,6 @@ export default function SubjectPage() {
 
     init()
   }, [router])
-
-  async function fetchNotes(token: string) {
-    const res = await fetch(`/api/notes?subject_id=${subjectId}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-
-    const data = await res.json()
-    setNotes(data.data || [])
-  }
 
   async function addNote() {
     const {

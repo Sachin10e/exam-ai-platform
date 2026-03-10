@@ -1,3 +1,5 @@
+export const maxDuration = 300;
+export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
@@ -11,11 +13,7 @@ export async function POST(req: NextRequest) {
 
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
         const model = genAI.getGenerativeModel({
-            model: "gemini-flash-lite-latest",
-            generationConfig: {
-                // Force Gemini to return a strict JSON Array
-                responseMimeType: "application/json",
-            },
+            model: "gemini-2.5-flash",
         });
 
         // Instruct Gemini on the exact schema shape we need for the Mock Exam component.
@@ -40,12 +38,10 @@ ${unitText}`;
         const result = await model.generateContent(prompt);
         let rawResponse = result.response.text().trim();
 
-        // Strip out markdown ticks if the AI still stubbornly included them
-        if (rawResponse.startsWith('```json')) {
-            rawResponse = rawResponse.substring(7);
-        }
-        if (rawResponse.endsWith('```')) {
-            rawResponse = rawResponse.substring(0, rawResponse.length - 3);
+        const arrayStart = rawResponse.indexOf('[');
+        const arrayEnd = rawResponse.lastIndexOf(']');
+        if (arrayStart !== -1 && arrayEnd !== -1) {
+            rawResponse = rawResponse.substring(arrayStart, arrayEnd + 1);
         }
 
         const questionsJson = JSON.parse(rawResponse.trim());
