@@ -19,6 +19,7 @@
     "dotenv": "^17.3.1",
     "formidable": "^3.5.4",
     "framer-motion": "^12.34.3",
+    "gpt-tokenizer": "^3.4.0",
     "highlight.js": "^11.11.1",
     "katex": "^0.16.33",
     "lucide-react": "^0.575.0",

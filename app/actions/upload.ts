@@ -5,7 +5,8 @@ import pdfParse from 'pdf-parse'
 import mammoth from 'mammoth'
 import Tesseract from 'tesseract.js'
 import crypto from 'crypto'
-import { generateEmbedding } from '../../lib/ollama'
+import { generateEmbedding } from '../../lib/embeddings'
+import { encode, decode } from 'gpt-tokenizer'
 
 const serviceSupabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -131,8 +132,20 @@ export async function uploadPdfAction(formData: FormData) {
         }
 
         // 3. Chunk and Embed
-        // Split text by double newlines (paragraphs/sections)
-        const rawChunks = cleanText.split('\n\n').filter(c => c.length > 50)
+        // Sliding Token Window (500 tokens, 100 overlap)
+        const tokens = encode(cleanText)
+        const rawChunks: string[] = []
+        const chunkSize = 500
+        const overlap = 100
+        const step = chunkSize - overlap
+
+        for (let i = 0; i < tokens.length; i += step) {
+            const chunkTokens = tokens.slice(i, i + chunkSize)
+            const decodedChunk = decode(chunkTokens)
+            if (decodedChunk.trim().length > 50) {
+                rawChunks.push(decodedChunk)
+            }
+        }
         let successCount = 0
 
         for (const chunk of rawChunks) { // Iterate over rawChunks

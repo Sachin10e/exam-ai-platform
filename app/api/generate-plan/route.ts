@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import { generateEmbedding } from '../../../lib/embeddings'
 const serviceSupabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -18,16 +19,18 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Subject ID is required' }, { status: 400 })
         }
 
-        // Fetch all contextual chunks for this subject (Since Gemini 2.x has a massive context window, we can fetch up to 150 chunks to give it the entire syllabus)
-        const { data: chunks } = await serviceSupabase
-            .from('chunks')
-            .select('content')
-            .eq('subject_id', subjectId)
-            .limit(150)
+        const query = `Unit ${targetUnit} important topics and expected questions for ${examType} exam`
+        const queryEmbedding = await generateEmbedding(query)
+        const { data: chunks } = await serviceSupabase.rpc('match_chunks', {
+            query_embedding: queryEmbedding,
+            match_threshold: 0.15,
+            match_count: 10,
+            filter_subject_id: subjectId
+        })
 
         let contextText = ''
         if (chunks && chunks.length > 0) {
-            contextText = chunks.map(c => c.content).join('\n\n')
+            contextText = chunks.map((c: { content: string }) => c.content).join('\n\n')
         }
 
         // Prompt Engineering Parameters
@@ -94,7 +97,18 @@ REQUIREMENTS FOR QUALITY AND DYNAMIC FORMATTING:
 3. DYNAMIC ANATOMY: 
    - EVERY Question MUST be distinctly separated by a horizontal rule \`---\`. You MUST leave a blank empty line before and after the rule.
    - EVERY Long Question MUST start with a large, bold H3 Markdown header strictly using the \`### \` syntax (e.g., \`### Question 1: What is the difference between... [${answerLength === 'Long' ? '10' : '5'} Marks]\`).
-   - If a long question asks for "Differences", "Comparisons", or "Vs", you MUST output a STRICT Markdown Table. Your table MUST include the divider row (e.g., \`| Feature | A | B |\` followed exactly by \`|---|---|---|\`). DO NOT skip the divider row.
+   - FORMATTING - COMPARISONS: If a question asks for or contains words like "difference", "compare", or "vs", you MUST output your answer as a STRICT Markdown comparison table. Your table MUST include the divider row (e.g., \`| Feature | A | B |\` followed exactly by \`|---|---|---|\`). DO NOT skip the divider row.
+   - FORMATTING - PROCESSES: If a question describes "steps", "workflow", or "process", you MUST generate a Mermaid flowchart. 
+     CRITICAL MERMAID RULES: 
+     1. You MUST wrap all node labels in double quotes to prevent syntax errors if they contain spaces or parentheses. 
+     2. You MUST NOT use any text on connection edges/arrows. (e.g., A-->B is valid. A-->|text|B is INVALID and will crash).
+     Example:
+\`\`\`mermaid
+flowchart TD
+A["Start (Initial)"] --> B["Step 1"]
+B --> C["Step 2"]
+C --> D["End"]
+\`\`\`
    - You MUST use rich formatting to explain concepts clearly: Use ASCII flowcharts, code blocks, step-by-step logic, bold keywords, and bulleted lists.
 4. SEPARATE RESOURCES AND TIPS on new lines (FOR LONG QUESTIONS ONLY):
    - Every major Answer MUST end with a short "💡 Pro-Tip:" or "🧠 Mnemonic:" on its own distinct line.

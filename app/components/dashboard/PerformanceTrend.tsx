@@ -16,21 +16,21 @@ const mockScores = [
 
 export default function PerformanceTrend() {
     return (
-        <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-6 flex flex-col h-full hover:bg-slate-800/60 transition-colors">
+        <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 flex flex-col h-full hover:bg-slate-800/60 hover:-translate-y-1 hover:shadow-lg hover:shadow-indigo-500/10 transition-all duration-200 group">
             <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
                         <TrendingUp className="w-5 h-5 text-emerald-400" />
                     </div>
                     <div>
-                        <h2 className="text-lg font-bold text-slate-200">Mock Test Performance</h2>
+                        <h2 className="text-sm font-medium text-slate-200">Mock Test Performance</h2>
                         <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Mock Scores</p>
                     </div>
                 </div>
                 <div className="text-2xl font-bold tracking-tight text-emerald-400">+12%</div>
             </div>
 
-            <div className="h-48 w-full mt-6">
+            <div className="h-56 w-full mt-6">
                 <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={mockScores} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                         <defs>

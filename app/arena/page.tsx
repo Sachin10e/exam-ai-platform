@@ -201,6 +201,7 @@ export default function ExamDashboard() {
   // Focus & Progress State
   const [isFocusMode, setIsFocusMode] = useState(false)
   const [unitProgress, setUnitProgress] = useState(0)
+  const [isTimerOpen, setIsTimerOpen] = useState(false)
 
   // Calculate reading time for current unit
   const calculateReadingTime = () => {
@@ -824,7 +825,7 @@ export default function ExamDashboard() {
         </AnimatePresence>
 
         {!hasGenerated && !isGenerating ? (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="h-full flex flex-col items-center justify-center text-center px-8 text-slate-500 relative z-10">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="min-h-[60vh] flex flex-col items-center justify-center text-center px-8 text-slate-500 relative z-10 w-full mt-4">
             <div className="w-24 h-24 mb-6 rounded-3xl bg-slate-800/40 backdrop-blur-lg border border-slate-700/50 flex items-center justify-center shadow-[0_0_40px_rgba(99,102,241,0.15)] relative">
               <div className="absolute inset-0 bg-indigo-500/10 rounded-3xl blur-xl"></div>
               <GraduationCap className="w-12 h-12 text-indigo-400 relative z-10" />
@@ -836,66 +837,69 @@ export default function ExamDashboard() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 flex flex-col min-h-0 print:min-h-full print:h-auto print:block print:overflow-visible relative">
 
             {/* Header Area */}
-            <div className="border-b border-slate-700/30 px-6 py-5 bg-slate-900/40 backdrop-blur-2xl sticky top-0 z-20 flex justify-between items-center shadow-sm relative print:hidden">
-              <div className="flex items-center gap-4">
+            <div className="border-b border-slate-700/30 px-6 h-16 bg-slate-900/40 backdrop-blur-2xl sticky top-0 z-20 flex justify-between items-center shadow-sm relative print:hidden">
+              <div className="flex items-center gap-4 flex-1">
                 <button
                   onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                  className="p-2 bg-slate-800/80 hover:bg-slate-700 rounded-lg text-slate-300 border border-slate-700 transition-colors shadow-sm"
+                  className="p-2 bg-slate-800/80 hover:bg-slate-700 rounded-lg text-slate-300 border border-slate-700 transition-colors shadow-sm shrink-0"
                   title={isSidebarOpen ? "Close Configuration Sidebar" : "Open Configuration Sidebar"}
                 >
                   {isSidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
                 </button>
-                <div className="h-8 w-1 bg-indigo-500 rounded-full"></div>
-                <h3 className="text-xl md:text-2xl font-bold text-slate-100 tracking-tight">Active Survival Plan</h3>
+                <div className="h-6 w-1 bg-indigo-500 rounded-full shrink-0"></div>
+                <h3 className="text-lg md:text-xl font-bold text-slate-100 tracking-tight shrink-0">Unit {targetUnit}</h3>
+                
+                <div className="hidden sm:flex items-center gap-4 w-full max-w-sm ml-4 border-l border-slate-700/50 pl-4">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest shrink-0">Progress</span>
+                    <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                       <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${unitProgress}%` }}></div>
+                    </div>
+                    <span className="text-xs font-bold text-emerald-400 shrink-0">{unitProgress}%</span>
+                </div>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 shrink-0">
                 <button
                   onClick={() => setIsFocusMode(!isFocusMode)}
                   className={clsx(
-                    "flex items-center gap-2 px-4 py-2 font-bold rounded-xl border transition-all shadow-sm text-sm group flex-shrink-0",
+                    "flex items-center gap-2 px-3 py-1.5 font-bold rounded-xl border transition-all shadow-sm text-xs group flex-shrink-0",
                     isFocusMode ? "bg-amber-500/10 text-amber-500 border-amber-500/20" : "bg-slate-800/80 hover:bg-slate-700 text-slate-300 border-slate-700"
                   )}
                 >
-                  <Target className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                  {isFocusMode ? "Exit Focus" : "Focus Mode"}
+                  <Target className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                  <span className="hidden md:inline">{isFocusMode ? "Exit Focus" : "Focus Mode"}</span>
                 </button>
-
-
 
                 {!isFocusMode && (
                   <button
                     onClick={() => setIsHistoryOpen(!isHistoryOpen)}
-                    className="flex items-center gap-2 px-4 py-2 bg-slate-800/80 hover:bg-slate-700 rounded-lg text-slate-300 font-medium border border-slate-700 transition-colors shadow-sm text-sm"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/80 hover:bg-slate-700 rounded-xl text-slate-300 font-medium border border-slate-700 transition-colors shadow-sm text-xs"
                   >
-                    <History className="w-4 h-4" />
+                    <History className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">History</span>
                   </button>
                 )}
-              </div>
-            </div>
 
-            {/* Progress & Pomodoro Bar */}
-            <div className="px-6 py-2 bg-slate-900 border-b border-slate-800/50 flex items-center justify-between sticky top-[72px] z-10 print:hidden overflow-hidden min-h-[70px]">
-              <div className="flex flex-col gap-1.5 flex-1 max-w-xl">
-                <div className="flex justify-between items-end">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Unit {targetUnit} Progress</span>
-                  <span className="text-xs font-black text-emerald-400">{unitProgress}%</span>
+                {/* Local Timer Popover for Arena */}
+                <div className="relative ml-2">
+                    <button 
+                        onClick={() => setIsTimerOpen(!isTimerOpen)}
+                        className="p-2 bg-slate-800/80 hover:bg-slate-700 rounded-xl border border-slate-700 text-slate-300 transition-colors shadow-sm"
+                    >
+                        <Clock className="w-4 h-4 text-indigo-400" />
+                    </button>
+                    {isTimerOpen && (
+                        <div className="absolute right-0 top-full mt-2 z-50">
+                            <PomodoroTimer />
+                        </div>
+                    )}
                 </div>
-                <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden shadow-inner">
-                  <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-1000 ease-out relative" style={{ width: `${unitProgress}%` }}>
-                    <div className="absolute inset-0 bg-white/20 w-full animate-pulse"></div>
-                  </div>
-                </div>
-              </div>
-              <div className="ml-6 scale-[0.65] sm:scale-75 origin-right">
-                <PomodoroTimer />
               </div>
             </div>
 
             {/* Chat/Markdown Feed */}
             <div
-              className="flex-1 overflow-y-auto print:overflow-visible print:block print:h-auto px-6 py-12 md:px-12 print:px-0 print:py-0 scroll-smooth custom-scrollbar relative"
+              className="flex-1 overflow-y-auto print:overflow-visible print:block print:h-auto px-6 pt-6 pb-12 md:px-12 print:px-0 print:py-0 scroll-smooth custom-scrollbar relative"
               ref={scrollContainerRef}
               onScroll={handleScroll}
             >
@@ -979,102 +983,86 @@ export default function ExamDashboard() {
                 {!isGenerating && !isChatLoading && messages.length > 0 && (
                   <div className="flex flex-col items-center gap-6 mt-8 pt-8 border-t border-slate-800/50 print:hidden">
 
-                    {/* Mark Unit Completed Hook */}
-                    <div className="w-full max-w-2xl bg-slate-900/50 border border-emerald-500/20 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4 mb-2">
-                      <div className="flex items-center gap-4 text-emerald-400">
-                        <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 hidden sm:block">
-                          <CheckCircle2 className="w-6 h-6" />
-                        </div>
-                        <div>
-                          <h4 className="font-black text-lg">Unit {targetUnit} Completed?</h4>
-                          <p className="text-xs text-emerald-500/70 font-medium tracking-wide">Lock in your progress before generating the next unit.</p>
+                    {/* Unified Completion Card */}
+                    <div className="w-full max-w-xl mx-auto bg-slate-900/50 border border-slate-700/50 rounded-2xl p-6 flex flex-col items-center text-center space-y-6 shadow-xl mb-4">
+                      
+                      <div className="flex flex-col items-center justify-center gap-2">
+                         <div className="w-12 h-12 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mb-1">
+                            <CheckCircle2 className="w-6 h-6" />
+                         </div>
+                         <h4 className="font-black text-2xl text-slate-100 flex items-center gap-2">Unit {targetUnit} Completed</h4>
+                      </div>
+
+                      <div className="w-full space-y-4">
+                        {/* Primary Action */}
+                        {!(examType === 'Mid' && midType === 'Mid 1' && targetUnit >= 3) ? (
+                            <button
+                                onClick={() => {
+                                    setUnitProgress(Math.min(100, unitProgress + 25));
+                                    generateStudyPlan(true);
+                                }}
+                                className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(99,102,241,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
+                            >
+                                <BrainCircuit className="w-5 h-5" />
+                                Continue to Next Unit
+                            </button>
+                        ): (
+                            <button
+                                onClick={() => setUnitProgress(100)}
+                                className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
+                            >
+                                <CheckCircle className="w-5 h-5" />
+                                Syllabus Completed
+                            </button>
+                        )}
+
+                        {/* Secondary Actions */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <button
+                            onClick={() => generateMoreQuestions()}
+                            className="flex items-center justify-center gap-2 py-2.5 px-4 bg-transparent hover:bg-slate-800 text-slate-300 font-semibold rounded-xl border border-slate-700 transition-all text-sm"
+                          >
+                            <PlusCircle className="w-4 h-4 text-indigo-400" />
+                            Practice Questions
+                          </button>
+                          
+                          <button
+                            onClick={handleExtractExam}
+                            disabled={isExtractingExam || messages.length === 0}
+                            className="flex items-center justify-center gap-2 py-2.5 px-4 bg-transparent hover:bg-slate-800 text-slate-300 font-semibold rounded-xl border border-slate-700 transition-all text-sm disabled:opacity-50"
+                          >
+                            {isExtractingExam ? <Loader2 className="w-4 h-4 animate-spin" /> : <PenTool className="w-4 h-4 text-emerald-400" />}
+                            Take Mock Test
+                          </button>
+
+                          <button
+                            onClick={() => window.print()}
+                            className="flex items-center justify-center gap-2 py-2.5 px-4 bg-transparent hover:bg-slate-800 text-slate-300 font-semibold rounded-xl border border-slate-700 transition-all text-sm"
+                          >
+                            <FileIcon className="w-4 h-4 text-amber-400" />
+                            Generate Notes
+                          </button>
+
+                          <button
+                            onClick={handleExtractFlashcards}
+                            disabled={isExtractingFlashcards || messages.length === 0}
+                            className="flex items-center justify-center gap-2 py-2.5 px-4 bg-transparent hover:bg-slate-800 text-slate-300 font-semibold rounded-xl border border-slate-700 transition-all text-sm disabled:opacity-50"
+                          >
+                            {isExtractingFlashcards ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4 text-fuchsia-400" />}
+                            Review Flashcards
+                          </button>
                         </div>
                       </div>
-                      <button
-                        onClick={() => setUnitProgress(Math.min(100, unitProgress + 25))}
-                        className="px-6 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)] transition-all active:scale-95 whitespace-nowrap"
-                      >
-                        Mark Unit Completed
-                      </button>
-                    </div>
-
-                    {/* Next Suggested Topic Panel */}
-                    <div className="w-full max-w-2xl bg-slate-800/40 border border-indigo-500/30 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 mb-2 shadow-sm">
-                      <div className="flex items-center gap-4 text-indigo-400">
-                        <div className="p-3 bg-indigo-500/10 rounded-xl border border-indigo-500/20 hidden sm:block">
-                          <BrainCircuit className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <p className="text-[0.65rem] text-indigo-400/80 font-bold uppercase tracking-wider mb-0.5">Next Suggested Topic</p>
-                          <h4 className="font-black text-lg text-slate-200">System Deadlocks & Concurrency</h4>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => generateStudyPlan(true)}
-                        className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(99,102,241,0.2)] transition-all active:scale-95 whitespace-nowrap"
-                      >
-                        Start Topic
-                      </button>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-4 justify-center">
-                      <button
-                        onClick={() => generateMoreQuestions()}
-                        className="flex items-center gap-2 px-6 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl border border-slate-700 transition-all font-sans shadow-lg"
-                      >
-                        <PlusCircle className="w-5 h-5 text-indigo-400" />
-                        More Unit {targetUnit} Questions
-                      </button>
-                      {!(examType === 'Mid' && midType === 'Mid 1' && targetUnit >= 3) && (
-                        <button
-                          onClick={() => generateStudyPlan(true)}
-                          className="flex items-center gap-2 px-6 py-3.5 bg-fuchsia-600/20 hover:bg-fuchsia-600/40 text-fuchsia-200 border border-fuchsia-500/30 font-bold rounded-xl transition-all shadow-lg"
-                        >
-                          <BrainCircuit className="w-5 h-5 text-fuchsia-400" />
-                          Continue to Unit {targetUnit + 1}
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Exporter Controls */}
-                    <div className="flex flex-col sm:flex-row items-stretch justify-center gap-4 mt-2 bg-slate-900/50 p-4 rounded-2xl border border-slate-700/50 w-full max-w-2xl mx-auto">
-                      <button
-                        onClick={handleExtractFlashcards}
-                        disabled={isExtractingFlashcards || messages.length === 0}
-                        className="flex items-center justify-center gap-2 px-6 py-3.5 font-bold rounded-xl border transition-all font-sans flex-1 bg-fuchsia-600 hover:bg-fuchsia-500 text-white border-fuchsia-500 shadow-[0_0_20px_rgba(192,38,211,0.3)] disabled:opacity-50 print:hidden"
-                      >
-                        {isExtractingFlashcards ? <Loader2 className="w-5 h-5 animate-spin" /> : <span>📇 Study Flashcards</span>}
-                      </button>
-
-                      <button
-                        onClick={handleExtractExam}
-                        disabled={isExtractingExam || messages.length === 0}
-                        className="flex items-center justify-center gap-2 px-6 py-3.5 font-bold rounded-xl border transition-all font-sans flex-1 bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)] disabled:opacity-50 print:hidden"
-                      >
-                        {isExtractingExam ? <Loader2 className="w-5 h-5 animate-spin" /> : <span>📝 Mock Exam</span>}
-                      </button>
-                      <label className="flex items-center cursor-pointer gap-3 min-w-[200px]">
-                        <div className="relative">
+                      
+                      {/* Handwritten Toggle Checkbox for PDF exports */}
+                      <label className="flex items-center justify-center cursor-pointer gap-2 mt-2 pt-4 border-t border-slate-800/50 w-full opacity-60 hover:opacity-100 transition-opacity">
+                        <div className="relative transform scale-75 origin-center">
                           <input type="checkbox" className="sr-only" checked={isHandwritten} onChange={() => setIsHandwritten(!isHandwritten)} />
                           <div className={clsx("block w-14 h-8 rounded-full transition-colors", isHandwritten ? "bg-indigo-500" : "bg-slate-700")}></div>
                           <div className={clsx("dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform", isHandwritten ? "transform translate-x-6" : "")}></div>
                         </div>
-                        <div className="flex flex-col">
-                          <span className="text-slate-200 font-bold text-sm tracking-wide">📝 Handwritten Notes</span>
-                          <span className="text-slate-500 text-xs">Styles PDF like a notebook</span>
-                        </div>
+                        <span className="text-slate-400 font-bold text-xs tracking-wide">📝 Handwritten PDF Styling</span>
                       </label>
-
-                      <button
-                        onClick={() => window.print()}
-                        className={clsx(
-                          "flex items-center justify-center gap-2 px-6 py-3.5 font-bold rounded-xl border transition-all font-sans flex-1 w-full",
-                          isHandwritten ? "bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.3)]" : "bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700"
-                        )}
-                      >
-                        <FileIcon className="w-5 h-5" />
-                        Save as PDF
-                      </button>
                     </div>
                   </div>
                 )}

@@ -9,7 +9,7 @@ export default function ExamCountdown() {
     const daysRemaining = 14;
 
     return (
-        <div className="bg-gradient-to-br from-indigo-900/40 to-slate-900/40 border border-indigo-500/20 rounded-3xl p-6 flex flex-col justify-between h-full relative overflow-hidden group hover:border-indigo-500/40 transition-colors">
+        <div className="bg-gradient-to-br from-indigo-900/40 to-slate-900/40 border border-indigo-500/20 rounded-2xl p-5 flex flex-col justify-between h-full relative overflow-hidden group hover:border-indigo-500/40 hover:-translate-y-1 hover:shadow-lg hover:shadow-indigo-500/10 transition-all duration-200">
 
             {/* Visual flair */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl -mr-10 -mt-10 group-hover:bg-indigo-500/20 transition-all"></div>
@@ -17,9 +17,9 @@ export default function ExamCountdown() {
             <div className="relative z-10 flex flex-col h-full justify-between gap-4">
                 <div className="flex justify-between items-start">
                     <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30">
-                        <CalendarClock className="w-6 h-6 text-indigo-300" />
+                        <CalendarClock className="w-5 h-5 text-indigo-300" />
                     </div>
-                    <span className="text-xs font-bold text-indigo-400 bg-indigo-500/10 px-3 py-1.5 rounded-full uppercase tracking-widest border border-indigo-500/20">
+                    <span className="text-sm font-medium text-indigo-400 bg-indigo-500/10 px-3 py-1.5 rounded-full uppercase tracking-widest border border-indigo-500/20">
                         Mid-Term 1
                     </span>
                 </div>

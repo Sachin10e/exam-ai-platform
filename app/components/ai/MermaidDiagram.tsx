@@ -9,6 +9,8 @@ mermaid.initialize({
     theme: 'dark',
     securityLevel: 'strict',
     fontFamily: 'Inter',
+    logLevel: 5,
+    suppressErrorRendering: true,
 });
 
 interface MermaidProps {
@@ -26,17 +28,34 @@ export default function MermaidDiagram({ chart }: MermaidProps) {
         const renderChart = async () => {
             try {
                 if (!chart) return;
-                // The render block automatically compiles Mermaid layout semantics
+                
+                // Validate syntax to prevent crash from incomplete stream chunks
+                const isSyntaxValid = await mermaid.parse(chart, { suppressErrors: true }).catch(() => false);
+                if (!isSyntaxValid) {
+                    // Fail silently during stream
+                    if (isMounted) setError(true);
+                    return;
+                }
+
                 const { svg } = await mermaid.render(chartId, chart);
-                if (isMounted) setSvgContent(svg);
+                if (isMounted) {
+                    setSvgContent(svg);
+                    setError(false);
+                }
             } catch (err) {
-                console.error('Mermaid render error: ', err);
                 if (isMounted) setError(true);
             }
         };
-        renderChart();
 
-        return () => { isMounted = false; };
+        // Debounce rendering to avoid thrashing during streaming tokens
+        const timeoutId = setTimeout(() => {
+            renderChart();
+        }, 300);
+
+        return () => { 
+            isMounted = false; 
+            clearTimeout(timeoutId);
+        };
     }, [chart, chartId]);
 
     if (error) {

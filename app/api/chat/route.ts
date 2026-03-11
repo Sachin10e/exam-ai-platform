@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { AIResponse } from '../../types';
-import { generateEmbedding } from '../../../lib/ollama'
+import { generateEmbedding } from '../../../lib/embeddings'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
 const serviceSupabase = createClient(
@@ -63,6 +63,18 @@ STRICT RULES:
 4. UNIT-WISE STUDY: If a syllabus is uploaded, break down preparation strictly "Unit-wise", prioritizing the highest-yield units.
 5. FALLBACK: If the provided text context does NOT contain the exact answer, you MUST use your own general academically-correct knowledge to answer the question, but add a brief note: "*(Note: This was answered using general knowledge as it wasn't explicitly found in your uploaded documents)*".
 6. Conversational but highly academic tone.
+7. FORMATTING - COMPARISONS: If the user's question contains words like "difference", "compare", or "vs", you MUST output your answer as a Markdown comparison table.
+8. FORMATTING - PROCESSES: If the user's question describes "steps", "workflow", or "process", you MUST generate a Mermaid flowchart. 
+   CRITICAL MERMAID RULES: 
+   1. You MUST wrap all node labels in double quotes to prevent syntax errors. 
+   2. You MUST NOT use any text on connection edges/arrows. (e.g., A-->B is valid. A-->|text|B is INVALID).
+   Example:
+\`\`\`mermaid
+flowchart TD
+A["Start (Initial)"] --> B["Step 1"]
+B --> C["Step 2"]
+C --> D["End"]
+\`\`\`
 
 UPLOADED KNOWLEDGE BASE CONTEXT:
 ${contextText ? contextText : 'No document context found for this query.'}

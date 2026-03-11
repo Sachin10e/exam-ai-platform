@@ -1,8 +1,8 @@
 import fs from 'fs'
 import pdfParse from 'pdf-parse'
 import { createClient } from '@supabase/supabase-js'
-import axios from 'axios'
 import dotenv from 'dotenv'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 dotenv.config()
 
 const filePath = process.argv[2]
@@ -26,12 +26,14 @@ function chunkText(text, size = 800) {
 }
 
 async function generateEmbedding(text) {
-  const ollamaUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434'
-  const res = await axios.post(`${ollamaUrl}/api/embeddings`, {
-    model: 'nomic-embed-text',
-    prompt: text,
+  if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not found")
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+  const model = genAI.getGenerativeModel({ model: 'gemini-embedding-001' })
+  const result = await model.embedContent({
+    content: { role: "user", parts: [{ text: text }] },
+    outputDimensionality: 768
   })
-  return res.data.embedding
+  return result.embedding.values
 }
 
 async function processFile() {

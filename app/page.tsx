@@ -2,18 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Sparkles, FileText, BookOpen, Calculator, BrainCircuit, Activity, Clock, ChevronRight } from 'lucide-react';
+import { FileText, BookOpen, Calculator, BrainCircuit, Activity, Clock, ChevronRight } from 'lucide-react';
 import { getSessions, StudySessionMeta } from './actions/sessions';
 import dynamic from 'next/dynamic';
 import StatCard from './components/dashboard/StatCard';
 import StudyStreakWidget from './components/dashboard/StudyStreakWidget';
-import AIInsights from './components/dashboard/AIInsights';
-import StudyPlanList from './components/dashboard/StudyPlanList';
 import WeakTopics from './components/dashboard/WeakTopics';
 import ExamCountdown from './components/dashboard/ExamCountdown';
 import PerformanceTrend from './components/dashboard/PerformanceTrend';
 import ExamPredictions from './components/dashboard/ExamPredictions';
-import RevisionScheduler from './components/dashboard/RevisionScheduler';
 
 const ProgressChart = dynamic(() => import('./components/dashboard/ProgressChart'), {
   ssr: false,
@@ -32,7 +29,7 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-12">
+    <div className="p-6 pt-6 max-w-7xl mx-auto space-y-8">
       {/* Hero Welcome */}
       <div className="flex flex-col gap-2">
         <h1 className="text-4xl lg:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 tracking-tight">
@@ -44,42 +41,38 @@ export default function DashboardPage() {
       </div>
 
       {/* Quick Actions / Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatCard title="PDFs Uploaded" value="12" icon={FileText} color="indigo" />
         <StatCard title="Plans Generated" value={recentSessions.length || 0} icon={BrainCircuit} color="fuchsia" />
         <StatCard title="Mock Avg Score" value="84%" icon={Activity} color="emerald" />
         <StudyStreakWidget />
-
-        <Link href="/arena" className="group bg-indigo-600 hover:bg-indigo-500 border border-indigo-500 transition-all rounded-3xl p-6 shadow-[0_0_30px_rgba(99,102,241,0.2)] flex flex-col justify-between items-start cursor-pointer hover:-translate-y-1">
-          <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
-            <Sparkles className="w-6 h-6 text-white" />
-          </div>
-          <div className="w-full flex justify-between items-center mt-4">
-            <div className="text-xl font-bold text-white">New Area</div>
-            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white transition-colors">
-              <ChevronRight className="w-4 h-4 text-white group-hover:text-indigo-600 transition-colors" />
-            </div>
-          </div>
-        </Link>
       </div>
 
-      {/* Analytics & Insights Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 flex flex-col gap-6">
-          <ProgressChart />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Analytics & Insights 12-Column Grid */}
+      {recentSessions.length > 0 && (
+        <div className="grid grid-cols-12 gap-6 mb-8">
+          {/* Row 2 */}
+          <div className="col-span-12 lg:col-span-8">
+            <ProgressChart />
+          </div>
+          <div className="col-span-12 lg:col-span-4">
+            <ExamCountdown />
+          </div>
+
+          {/* Row 3 */}
+          <div className="col-span-12 lg:col-span-6">
             <PerformanceTrend />
+          </div>
+          <div className="col-span-12 lg:col-span-6">
             <WeakTopics />
           </div>
-          <ExamPredictions />
+
+          {/* Row 4 */}
+          <div className="col-span-12">
+            <ExamPredictions />
+          </div>
         </div>
-        <div className="flex flex-col gap-6">
-          <ExamCountdown />
-          <StudyPlanList />
-          <AIInsights />
-          <RevisionScheduler />
-        </div>
-      </div>
+      )}
 
       {/* Recent Sessions Grid */}
       <div>
@@ -93,7 +86,7 @@ export default function DashboardPage() {
         {isLoading ? (
           <div className="text-slate-500 text-sm animate-pulse">Loading recent activity...</div>
         ) : recentSessions.length === 0 ? (
-          <div className="bg-slate-900/50 border border-slate-800 border-dashed rounded-3xl p-12 flex flex-col flex-1 items-center justify-center text-center">
+          <div className="bg-slate-900/50 border border-slate-800 border-dashed rounded-3xl p-12 min-h-[60vh] flex flex-col flex-1 items-center justify-center text-center">
             <div className="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center mb-4">
               <BookOpen className="w-8 h-8 text-slate-500" />
             </div>
@@ -106,16 +99,19 @@ export default function DashboardPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {recentSessions.map(session => (
-              <Link href={`/chat?session=${session.id}`} key={session.id} className="bg-slate-900/40 border border-slate-800/50 hover:bg-slate-800/80 hover:border-slate-700 transition-all rounded-3xl p-5 flex flex-col justify-between group cursor-pointer group hover:-translate-y-1">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center border border-indigo-500/20">
-                    <Calculator className="w-5 h-5 text-indigo-400" />
+              <Link href={`/chat?session=${session.id}`} key={session.id} className="bg-slate-900/40 border border-slate-800/50 hover:bg-slate-800 hover:border-slate-700 transition-all rounded-xl p-4 h-auto flex items-center gap-4 group cursor-pointer block">
+                <div className="w-10 h-10 bg-indigo-500/10 rounded-lg flex items-center justify-center border border-indigo-500/20 shrink-0">
+                  <Calculator className="w-5 h-5 text-indigo-400 group-hover:scale-110 transition-transform" />
+                </div>
+                <div className="flex flex-col min-w-0 flex-1">
+                  <h3 className="text-slate-200 font-bold text-sm mb-0.5 truncate">{session.title}</h3>
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
+                    <Clock className="w-3.5 h-3.5" />
+                    {new Date(session.created_at).toLocaleDateString()}
                   </div>
                 </div>
-                <h3 className="text-slate-200 font-bold mb-1 truncate">{session.title}</h3>
-                <div className="flex items-center gap-1 text-xs font-medium text-slate-500">
-                  <Clock className="w-3 h-3" />
-                  {new Date(session.created_at).toLocaleDateString()}
+                <div className="text-slate-600 group-hover:text-indigo-400 transition-colors shrink-0">
+                  <ChevronRight className="w-5 h-5" />
                 </div>
               </Link>
             ))}
