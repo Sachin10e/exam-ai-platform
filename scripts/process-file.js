@@ -1,8 +1,9 @@
-const fs = require('fs')
-const pdfParse = require('pdf-parse')
-const { createClient } = require('@supabase/supabase-js')
-const axios = require('axios')
-require('dotenv').config()
+import fs from 'fs'
+import pdfParse from 'pdf-parse'
+import { createClient } from '@supabase/supabase-js'
+import axios from 'axios'
+import dotenv from 'dotenv'
+dotenv.config()
 
 const filePath = process.argv[2]
 
@@ -47,7 +48,7 @@ async function processFile() {
 
     console.log('Checking for existing subject...')
     // Check if subject already exists
-    const { data: existing, error: existingError } = await supabase
+    const { data: existing } = await supabase
       .from('subjects')
       .select('*')
       .eq('name', subjectName)

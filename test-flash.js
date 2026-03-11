@@ -1,5 +1,6 @@
-require('dotenv').config({ path: '.env.local' });
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+import dotenv from 'dotenv';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+dotenv.config({ path: '.env.local' });
 
 async function test() {
   try {

@@ -20,6 +20,7 @@ const patrick = Patrick_Hand({
 
 import Sidebar from "./components/layout/Sidebar";
 import TopNav from "./components/layout/TopNav";
+import GlobalShortcuts from "./components/layout/GlobalShortcuts";
 
 export const metadata: Metadata = {
   title: "Exam Survival AI Platform",
@@ -36,6 +37,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${patrick.variable} antialiased overflow-hidden print:overflow-visible print:h-auto print:block`}
       >
+        <GlobalShortcuts />
         <div className="flex h-screen print:h-auto print:block print:overflow-visible bg-slate-950 text-slate-100">
           <Sidebar />
           <div className="flex-1 flex flex-col relative overflow-hidden min-w-0 print:block print:overflow-visible print:h-auto">

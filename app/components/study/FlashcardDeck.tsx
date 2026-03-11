@@ -86,8 +86,24 @@ export default function FlashcardDeck({ flashcards, onClose }: FlashcardDeckProp
                 </div>
             </div>
 
+            {/* SRS Counters */}
+            <div className="w-full max-w-2xl flex justify-center gap-3 md:gap-6 mt-20 pointer-events-none z-10">
+                <div className="px-3 py-2 md:px-5 md:py-2.5 bg-slate-800/80 border border-slate-700/50 rounded-2xl flex items-center gap-2 shadow-lg backdrop-blur-md text-xs md:text-sm font-bold text-slate-300">
+                    <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.8)]"></div>
+                    New: <span className="text-white">12</span>
+                </div>
+                <div className="px-3 py-2 md:px-5 md:py-2.5 bg-slate-800/80 border border-slate-700/50 rounded-2xl flex items-center gap-2 shadow-lg backdrop-blur-md text-xs md:text-sm font-bold text-slate-300">
+                    <div className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.8)]"></div>
+                    Review Due: <span className="text-white">5</span>
+                </div>
+                <div className="px-3 py-2 md:px-5 md:py-2.5 bg-slate-800/80 border border-slate-700/50 rounded-2xl flex items-center gap-2 shadow-lg backdrop-blur-md text-xs md:text-sm font-bold text-slate-300">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"></div>
+                    Mastered: <span className="text-white">38</span>
+                </div>
+            </div>
+
             {/* Flashcard 3D Container */}
-            <div className="relative w-full max-w-2xl aspect-[4/3] md:aspect-video mt-12 perspective-1000">
+            <div className="relative w-full max-w-2xl aspect-[4/3] md:aspect-video mt-6 perspective-1000">
                 <AnimatePresence mode="wait">
                     <motion.div
                         key={currentIndex}

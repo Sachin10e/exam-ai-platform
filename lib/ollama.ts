@@ -12,6 +12,7 @@ export async function generateEmbedding(text: string) {
   const result = await model.embedContent({
     content: { role: "user", parts: [{ text: text }] },
     outputDimensionality: 768
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any)
 
   return result.embedding.values

@@ -2,14 +2,13 @@ export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { v4 as uuidv4 } from 'uuid'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 const serviceSupabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const OLLAMA_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434'
+
 
 export async function POST(req: Request) {
     try {
@@ -20,7 +19,7 @@ export async function POST(req: Request) {
         }
 
         // Fetch all contextual chunks for this subject (Since Gemini 2.x has a massive context window, we can fetch up to 150 chunks to give it the entire syllabus)
-        const { data: chunks, error: chunkListErr } = await serviceSupabase
+        const { data: chunks } = await serviceSupabase
             .from('chunks')
             .select('content')
             .eq('subject_id', subjectId)
@@ -196,8 +195,8 @@ REQUIREMENTS FOR QUALITY AND DYNAMIC FORMATTING:
             }
         })
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Generate Plan Error:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return NextResponse.json({ error: error instanceof Error ? error.message : "Unknown error" }, { status: 500 })
     }
 }

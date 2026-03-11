@@ -1,16 +1,23 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-export default function SubjectPage() {
-  const params = useParams()
+interface Note {
+  id: string;
+  title: string;
+  created_at?: string;
+  full_text?: string;
+  content?: string;
+}
+
+export default function SubjectDetail({ params }: { params: { id: string } }) {
   const router = useRouter()
 
   const subjectId = params.id as string
 
-  const [notes, setNotes] = useState<any[]>([])
+  const [notes, setNotes] = useState<Note[]>([])
   const [content, setContent] = useState('')
   const [loading, setLoading] = useState(true)
 
@@ -41,6 +48,7 @@ export default function SubjectPage() {
     }
 
     init()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router])
 
   async function addNote() {

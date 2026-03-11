@@ -17,7 +17,7 @@ export default function Sidebar() {
     const pathname = usePathname();
 
     return (
-        <div className="w-64 border-r border-slate-800/80 bg-slate-950/50 backdrop-blur-xl h-screen flex flex-col print:hidden sticky top-0 shrink-0">
+        <div id="global-sidebar" className="w-64 border-r border-slate-800/80 bg-slate-950/50 backdrop-blur-xl h-screen flex flex-col print:hidden sticky top-0 shrink-0 transition-transform duration-300">
             <div className="p-6 border-b border-slate-800/80">
                 <h1 className="font-extrabold text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-fuchsia-400">
                     Exam <span className="text-white">Arena</span>

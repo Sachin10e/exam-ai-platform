@@ -1,17 +1,30 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { AIResponse } from '../../types';
 import { generateEmbedding } from '../../../lib/ollama'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
 const serviceSupabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const OLLAMA_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434'
+
 
 export async function POST(req: Request) {
     try {
-        const { messages, subjectId } = await req.json()
+        const body = await req.json()
+        const subjectId = body.subjectId
+
+        let messages = body.messages
+
+        if (!messages && body.message) {
+            messages = [{ role: 'user', content: body.message }]
+        }
+
+        if (!messages || !Array.isArray(messages) || messages.length === 0) {
+            return NextResponse.json({ error: 'Valid "messages" array or "message" string is required' }, { status: 400 })
+        }
 
         // Get the latest user message
         const lastMessage = messages[messages.length - 1]
@@ -23,7 +36,7 @@ export async function POST(req: Request) {
         if (subjectId) {
             try {
                 const queryEmbedding = await generateEmbedding(query)
-                const { data: chunks, error } = await serviceSupabase.rpc('match_chunks', {
+                const { data: chunks } = await serviceSupabase.rpc('match_chunks', {
                     query_embedding: queryEmbedding,
                     match_threshold: 0.15,
                     match_count: 10,
@@ -31,7 +44,7 @@ export async function POST(req: Request) {
                 })
 
                 if (chunks && chunks.length > 0) {
-                    contextText = chunks.map((c: any) => c.content).join('\n\n')
+                    contextText = chunks.map((c: { content: string }) => c.content).join('\n\n')
                 }
             } catch (err) {
                 console.error('RAG Error:', err)
@@ -57,7 +70,7 @@ ${contextText ? contextText : 'No document context found for this query.'}
 
         // Collapse the entire conversational history into a single monolithic user prompt 
         // to completely bypass Gemini's strict "User must start" and "Alternating turns only" rules.
-        const historyText = messages.map((m: any) => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n---NEXT MESSAGE---\n\n')
+        const historyText = messages.map((m: AIResponse) => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n---NEXT MESSAGE---\n\n')
 
         const geminiMessages = [
             {
@@ -67,8 +80,7 @@ ${contextText ? contextText : 'No document context found for this query.'}
         ]
 
         // Add System instruction manually to the first message or use SystemInstruction field
-        const { GoogleGenerativeAI } = require('@google/generative-ai')
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string)
 
         const model = genAI.getGenerativeModel({
             model: "gemini-flash-lite-latest",
@@ -104,8 +116,8 @@ ${contextText ? contextText : 'No document context found for this query.'}
             }
         })
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Chat API Error:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 })
     }
 }

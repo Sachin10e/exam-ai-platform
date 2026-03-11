@@ -4,6 +4,21 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Sparkles, FileText, BookOpen, Calculator, BrainCircuit, Activity, Clock, ChevronRight } from 'lucide-react';
 import { getSessions, StudySessionMeta } from './actions/sessions';
+import dynamic from 'next/dynamic';
+import StatCard from './components/dashboard/StatCard';
+import StudyStreakWidget from './components/dashboard/StudyStreakWidget';
+import AIInsights from './components/dashboard/AIInsights';
+import StudyPlanList from './components/dashboard/StudyPlanList';
+import WeakTopics from './components/dashboard/WeakTopics';
+import ExamCountdown from './components/dashboard/ExamCountdown';
+import PerformanceTrend from './components/dashboard/PerformanceTrend';
+import ExamPredictions from './components/dashboard/ExamPredictions';
+import RevisionScheduler from './components/dashboard/RevisionScheduler';
+
+const ProgressChart = dynamic(() => import('./components/dashboard/ProgressChart'), {
+  ssr: false,
+  loading: () => <div className="w-full bg-slate-900/30 border border-slate-800/50 rounded-3xl p-6 h-80 animate-pulse flex items-center justify-center text-slate-500 font-medium">Loading metrics...</div>
+});
 
 export default function DashboardPage() {
   const [recentSessions, setRecentSessions] = useState<StudySessionMeta[]>([]);
@@ -29,36 +44,11 @@ export default function DashboardPage() {
       </div>
 
       {/* Quick Actions / Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-slate-900/50 border border-slate-800 rounded-3xl p-6 shadow-sm flex flex-col gap-4">
-          <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center border border-indigo-500/20">
-            <FileText className="w-6 h-6 text-indigo-400" />
-          </div>
-          <div>
-            <div className="text-3xl font-bold text-slate-100">12</div>
-            <div className="text-slate-500 text-sm font-medium mt-1">PDFs Uploaded</div>
-          </div>
-        </div>
-
-        <div className="bg-slate-900/50 border border-slate-800 rounded-3xl p-6 shadow-sm flex flex-col gap-4">
-          <div className="w-12 h-12 bg-fuchsia-500/10 rounded-2xl flex items-center justify-center border border-fuchsia-500/20">
-            <BrainCircuit className="w-6 h-6 text-fuchsia-400" />
-          </div>
-          <div>
-            <div className="text-3xl font-bold text-slate-100">{recentSessions.length || 0}</div>
-            <div className="text-slate-500 text-sm font-medium mt-1">Study Plans Generated</div>
-          </div>
-        </div>
-
-        <div className="bg-slate-900/50 border border-slate-800 rounded-3xl p-6 shadow-sm flex flex-col gap-4">
-          <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20">
-            <Activity className="w-6 h-6 text-emerald-400" />
-          </div>
-          <div>
-            <div className="text-3xl font-bold text-slate-100">84%</div>
-            <div className="text-slate-500 text-sm font-medium mt-1">Mock Exam Avg Score</div>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <StatCard title="PDFs Uploaded" value="12" icon={FileText} color="indigo" />
+        <StatCard title="Plans Generated" value={recentSessions.length || 0} icon={BrainCircuit} color="fuchsia" />
+        <StatCard title="Mock Avg Score" value="84%" icon={Activity} color="emerald" />
+        <StudyStreakWidget />
 
         <Link href="/arena" className="group bg-indigo-600 hover:bg-indigo-500 border border-indigo-500 transition-all rounded-3xl p-6 shadow-[0_0_30px_rgba(99,102,241,0.2)] flex flex-col justify-between items-start cursor-pointer hover:-translate-y-1">
           <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
@@ -71,6 +61,24 @@ export default function DashboardPage() {
             </div>
           </div>
         </Link>
+      </div>
+
+      {/* Analytics & Insights Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 flex flex-col gap-6">
+          <ProgressChart />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <PerformanceTrend />
+            <WeakTopics />
+          </div>
+          <ExamPredictions />
+        </div>
+        <div className="flex flex-col gap-6">
+          <ExamCountdown />
+          <StudyPlanList />
+          <AIInsights />
+          <RevisionScheduler />
+        </div>
       </div>
 
       {/* Recent Sessions Grid */}

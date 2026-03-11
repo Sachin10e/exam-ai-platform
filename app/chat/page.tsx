@@ -1,13 +1,22 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Send, Bot, User, Loader2, Database, ChevronDown } from 'lucide-react';
+import { MessageSquare, Send, Bot, User, Database, ChevronDown, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import clsx from 'clsx';
-import { getSessions, StudySessionMeta, getSessionById } from '../actions/sessions';
+import { getSessionById, getSessions, StudySessionMeta } from '../actions/sessions'
+import { AIResponse } from '../types';
+
+const SUGGESTED_ACTIONS = [
+    { label: "Explain Simply", prompt: "Explain this topic in simple terms with examples.", icon: "💡" },
+    { label: "Generate Diagram", prompt: "Generate a mermaid diagram for this concept.", icon: "📊" },
+    { label: "Create Flashcards", prompt: "Create 5 high-yield flashcards from this text.", icon: "📇" },
+    { label: "Generate MCQs", prompt: "Generate 3 multiple-choice questions to test my knowledge.", icon: "📝" },
+    { label: "Give Exam Answer", prompt: "Provide a structured, 10-mark exam answer for this topic.", icon: "🎓" }
+];
 
 export default function ChatPage() {
-    const [messages, setMessages] = useState<{ role: 'user' | 'assistant', content: string }[]>([
+    const [messages, setMessages] = useState<AIResponse[]>([
         { role: 'assistant', content: 'Hello! I am your AI learning assistant. Select a knowledge base from your history, or simply ask a generic question!' }
     ]);
     const [chatInput, setChatInput] = useState('');
@@ -136,7 +145,7 @@ export default function ChatPage() {
                                 {m.role === 'assistant' ? (
                                     <div className="markdown-prose space-y-4">
                                         <ReactMarkdown>
-                                            {m.content || '...'}
+                                            {m.content ? (m.content + (isTyping && idx === messages.length - 1 && m.role === 'assistant' ? ' ▋' : '')) : (isTyping && idx === messages.length - 1 && m.role === 'assistant' ? '*Incoming transmission...* ▋' : '...')}
                                         </ReactMarkdown>
                                     </div>
                                 ) : (
@@ -146,13 +155,20 @@ export default function ChatPage() {
                         </div>
                     ))}
                     {isTyping && !messages[messages.length - 1].content && (
-                        <div className="flex gap-4">
+                        <div className="flex gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
                             <div className="w-10 h-10 shrink-0 rounded-2xl flex items-center justify-center border shadow-sm bg-slate-800 border-slate-700">
-                                <Bot className="w-5 h-5 text-indigo-400" />
+                                <Bot className="w-5 h-5 text-indigo-400 animate-pulse" />
                             </div>
-                            <div className="bg-slate-900 border border-slate-800 rounded-3xl rounded-tl-sm p-5 flex items-center gap-2">
-                                <Loader2 className="w-5 h-5 animate-spin text-indigo-400" />
-                                <span className="text-slate-400 text-sm font-medium tracking-wide">Synthesizing...</span>
+                            <div className="bg-slate-900 border border-slate-800 rounded-3xl rounded-tl-sm p-6 flex flex-col gap-3 min-w-[240px] shadow-sm">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <Sparkles className="w-4 h-4 animate-pulse text-indigo-400" />
+                                    <span className="text-indigo-300/80 text-xs font-bold tracking-widest uppercase">Synthesizing</span>
+                                </div>
+                                <div className="flex flex-col gap-2.5">
+                                    <div className="h-2 bg-slate-800/80 rounded-full w-full animate-pulse"></div>
+                                    <div className="h-2 bg-slate-800/80 rounded-full w-[85%] animate-pulse delay-75"></div>
+                                    <div className="h-2 bg-slate-800/80 rounded-full w-[60%] animate-pulse delay-150"></div>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -162,7 +178,23 @@ export default function ChatPage() {
 
             {/* Input Area */}
             <div className="p-6 bg-slate-950/80 backdrop-blur-xl border-t border-slate-800 shrink-0">
-                <div className="max-w-4xl mx-auto">
+                <div className="max-w-4xl mx-auto flex flex-col gap-4">
+
+                    {/* Suggested Smart Actions */}
+                    <div className="flex items-center gap-3 overflow-x-auto pb-2 custom-scrollbar">
+                        {SUGGESTED_ACTIONS.map((action, i) => (
+                            <button
+                                key={i}
+                                type="button"
+                                onClick={() => setChatInput(action.prompt)}
+                                className="flex items-center gap-2 whitespace-nowrap px-4 py-2 bg-slate-900 border border-slate-700/80 hover:border-indigo-500/50 hover:bg-slate-800 text-slate-300 text-sm font-medium rounded-full shadow-sm hover:shadow-[0_0_15px_rgba(99,102,241,0.2)] transition-all group shrink-0"
+                            >
+                                <span>{action.icon}</span>
+                                <span className="group-hover:text-indigo-300 transition-colors">{action.label}</span>
+                            </button>
+                        ))}
+                    </div>
+
                     <form onSubmit={handleSend} className="relative flex items-center shadow-2xl">
                         <input
                             type="text"

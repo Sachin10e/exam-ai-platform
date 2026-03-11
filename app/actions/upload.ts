@@ -12,13 +12,7 @@ const serviceSupabase = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-function chunkText(text: string, size = 1000) {
-    const chunks = []
-    for (let i = 0; i < text.length; i += size - 100) {
-        chunks.push(text.slice(i, i + size))
-    }
-    return chunks
-}
+
 
 export async function uploadPdfAction(formData: FormData) {
     try {
@@ -41,10 +35,10 @@ export async function uploadPdfAction(formData: FormData) {
         if (mimeType === 'application/pdf' || fileName.endsWith('.pdf')) {
             // PDF Parsing
             const pdfData = await pdfParse(buffer, {
-                pagerender: function (pageData: any) {
-                    return pageData.getTextContent().then(function (textContent: any) {
+                pagerender: function (pageData: { getTextContent: () => Promise<{ items: { str: string, transform: number[] }[] }> }) {
+                    return pageData.getTextContent().then(function (textContent: { items: { str: string, transform: number[] }[] }) {
                         let lastY, text = ''
-                        for (let item of textContent.items) {
+                        for (const item of textContent.items) {
                             if (lastY == item.transform[5] || !lastY) {
                                 text += item.str
                             } else {
@@ -81,7 +75,7 @@ export async function uploadPdfAction(formData: FormData) {
         }
 
         // Clean text
-        let cleanText = FullText
+        const cleanText = FullText
             .replace(/\u0000/g, '') // Remove null chars
             .replace(/\r\n/g, '\n')
             .replace(/\n{3,}/g, '\n\n') // Normalize newlines
@@ -116,7 +110,7 @@ export async function uploadPdfAction(formData: FormData) {
         }
 
         // 3. Insert new Document Record
-        const insertPayload: any = {
+        const insertPayload: Record<string, unknown> = {
             subject_id: subjectId,
             filename: file.name,
             full_text: cleanText
@@ -147,9 +141,10 @@ export async function uploadPdfAction(formData: FormData) {
             let embedding;
             try {
                 embedding = await generateEmbedding(chunk)
-            } catch (embErr: any) {
+            } catch (embErr: unknown) {
                 console.error('Failed to generate embedding for chunk', embErr)
-                throw new Error(`Failed to generate Gemini embedding: ${embErr.message}`)
+                const errMsg = embErr instanceof Error ? embErr.message : 'Unknown error'
+                throw new Error(`Failed to generate Gemini embedding: ${errMsg}`)
             }
 
             const { error: chunkError } = await serviceSupabase
@@ -171,8 +166,9 @@ export async function uploadPdfAction(formData: FormData) {
             message: `Processed ${successCount} chunks from ${file.name}`
         }
 
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('Upload error:', err)
-        return { error: err.message || 'Upload failed' }
+        const errMsg = err instanceof Error ? err.message : 'Upload failed'
+        return { error: errMsg }
     }
 }

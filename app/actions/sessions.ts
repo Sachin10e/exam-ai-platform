@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@supabase/supabase-js';
+import { AIResponse } from '../types';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -16,15 +17,15 @@ export interface StudySessionMeta {
 }
 
 export interface StudySession extends StudySessionMeta {
-    messages: any[];
+    messages: AIResponse[];
 }
 
 /**
  * Saves a generated study plan to the Supabase database.
  */
-export async function saveSession(title: string, messages: any[], id?: string) {
+export async function saveSession(title: string, messages: AIResponse[], id?: string) {
     try {
-        const payload: any = { title, messages };
+        const payload: { title: string; messages: AIResponse[]; id?: string } = { title, messages };
         if (id) payload.id = id;
 
         const { data, error } = await supabase

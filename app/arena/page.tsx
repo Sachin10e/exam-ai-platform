@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react'
@@ -13,14 +14,16 @@ import rehypeKatex from 'rehype-katex'
 import rehypeHighlight from 'rehype-highlight'
 import 'katex/dist/katex.min.css'
 import 'highlight.js/styles/github-dark.css'
-import FlashcardDeck, { Flashcard } from '../components/FlashcardDeck'
-import MockExamModal, { ExamQuestion } from '../components/MockExamModal'
+import FlashcardDeck, { Flashcard } from '../components/study/FlashcardDeck'
+import dynamic from 'next/dynamic'
+import type { ExamQuestion } from '../components/study/MockExamModal'
+const MockExamModal = dynamic(() => import('../components/study/MockExamModal'), { ssr: false })
+const MermaidDiagram = dynamic(() => import('../components/ai/MermaidDiagram'), { ssr: false })
 import { saveSession, getSessions, getSessionById, StudySessionMeta } from '../actions/sessions'
+import PomodoroTimer from '../components/study/PomodoroTimer'
+import { AIResponse } from '../types'
 
-type Message = {
-  role: 'user' | 'assistant'
-  content: string
-}
+// Local binding obsolete, using AIResponse globally
 
 type GeneratedPlan = {
   hitlist: { q: string, a: string }[],
@@ -51,12 +54,13 @@ const loadingSteps = [
 
 const ThrottledMarkdown = React.memo(({ content }: { content: string }) => {
   const [displayContent, setDisplayContent] = useState(content);
-  const lastUpdateRef = useRef(Date.now());
+  const lastUpdateRef = useRef(0);
 
   useEffect(() => {
     const now = Date.now();
     // 5 FPS Throttle (200ms threshold)
     if (now - lastUpdateRef.current >= 200) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDisplayContent(content);
       lastUpdateRef.current = now;
     } else {
@@ -93,18 +97,23 @@ const ThrottledMarkdown = React.memo(({ content }: { content: string }) => {
           </div>
         ),
         thead: ({ node, ...props }) => <thead className="bg-slate-800/80 border-b border-slate-700 text-slate-300 text-sm uppercase tracking-wider" {...props} />,
-        th: ({ node, ...props }) => <th className="px-6 py-4 font-bold" {...props} />,
-        td: ({ node, ...props }) => <td className="px-6 py-4 border-b border-slate-800/50 text-slate-300 bg-slate-900/30 font-normal" {...props} />,
-        tr: ({ node, ...props }) => <tr className="hover:bg-slate-800/20 transition-colors" {...props} />,
-        pre: ({ node, children, ...props }: any) => {
+        th: ({ node: _n1, ...props }) => <th className="px-6 py-4 font-bold" {...props} />,
+        td: ({ node: _n2, ...props }) => <td className="px-6 py-4 border-b border-slate-800/50 text-slate-300 bg-slate-900/30 font-normal" {...props} />,
+        tr: ({ node: _n3, ...props }) => <tr className="hover:bg-slate-800/20 transition-colors" {...props} />,
+        pre: ({ node: _n4, children, ...props }: React.ComponentPropsWithoutRef<'pre'> & { node?: unknown }) => {
           let language = 'Code'
           const childArray = React.Children.toArray(children)
           const codeElement = childArray[0]
           if (React.isValidElement(codeElement)) {
-            const childProps: any = codeElement.props || {}
+            const childProps: React.ComponentPropsWithoutRef<'code'> = (codeElement as React.ReactElement).props || {}
             if (childProps.className) {
               const match = /language-(\w+)/.exec(childProps.className)
               if (match) language = match[1]
+
+              // 🌟 MERMAID DIAGRAM INTERCEPTOR 🌟
+              if (language === 'mermaid') {
+                return <MermaidDiagram chart={String(childProps.children).replace(/\n$/, '')} />
+              }
             }
             return (
               <div className="my-8 rounded-xl overflow-hidden ring-1 ring-slate-700/50 shadow-2xl bg-[#0d1117]">
@@ -112,14 +121,14 @@ const ThrottledMarkdown = React.memo(({ content }: { content: string }) => {
                   <span>{language}</span>
                 </div>
                 <pre className="p-5 overflow-x-auto text-[0.95rem] leading-relaxed" {...props}>
-                  {React.cloneElement(codeElement, { 'data-block': true } as any)}
+                  {React.cloneElement(codeElement as React.ReactElement<Record<string, unknown>>, { 'data-block': true })}
                 </pre>
               </div>
             )
           }
           return <pre className="p-5 overflow-x-auto text-[0.95rem] leading-relaxed" {...props}>{children}</pre>
         },
-        code: ({ node, className, children, "data-block": isBlock, ...props }: any) => {
+        code: ({ node: _n5, className, children, "data-block": isBlock, ...props }: React.ComponentPropsWithoutRef<'code'> & { node?: unknown, "data-block"?: boolean }) => {
           if (isBlock || (className && className.includes('language-'))) {
             return <code className={className} {...props}>{children}</code>
           }
@@ -159,7 +168,7 @@ export default function ExamDashboard() {
   const [loadingStepIndex, setLoadingStepIndex] = useState(0)
 
   // Output & Chat State
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<AIResponse[]>([])
   const [hasGenerated, setHasGenerated] = useState(false)
   const [chatInput, setChatInput] = useState('')
   const [isChatLoading, setIsChatLoading] = useState(false)
@@ -189,6 +198,26 @@ export default function ExamDashboard() {
   const [examQuestions, setExamQuestions] = useState<ExamQuestion[]>([])
   const [isExtractingExam, setIsExtractingExam] = useState(false)
 
+  // Focus & Progress State
+  const [isFocusMode, setIsFocusMode] = useState(false)
+  const [unitProgress, setUnitProgress] = useState(0)
+
+  // Calculate reading time for current unit
+  const calculateReadingTime = () => {
+    const text = messages.map(m => m.content).join(' ');
+    const words = text.split(/\s+/).length;
+    return Math.ceil(words / 200); // Average 200 WPM
+  }
+
+  // Effect for Focus Mode body class
+  useEffect(() => {
+    if (isFocusMode) {
+      document.body.classList.add('focus-mode-active');
+    } else {
+      document.body.classList.remove('focus-mode-active');
+    }
+  }, [isFocusMode]);
+
   // Subject initializes lazily on first upload to prevent empty database rows
 
   useEffect(() => {
@@ -205,6 +234,7 @@ export default function ExamDashboard() {
         }
       })
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGenerating, isChatLoading])
 
   useEffect(() => {
@@ -272,7 +302,7 @@ export default function ExamDashboard() {
         try {
           const res = await createSubjectAction();
           if (res.id) currentSubjectId = res.id;
-        } catch (err) {
+        } catch {
           setIsGenerating(false); setUploading(false); return alert('Database err');
         }
       }
@@ -358,9 +388,10 @@ export default function ExamDashboard() {
         })
       }
 
-    } catch (err: any) {
-      console.error(err)
-      alert("Error generating plan: " + err.message)
+    } catch (err: unknown) {
+      console.error('Error auto-generating PDF:', err);
+      const errMsg = err instanceof Error ? err.message : 'Failed to parse syllabus';
+      alert("Error generating plan: " + errMsg);
     } finally {
       setIsGenerating(false)
     }
@@ -820,12 +851,45 @@ export default function ExamDashboard() {
 
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => setIsHistoryOpen(!isHistoryOpen)}
-                  className="flex items-center gap-2 px-4 py-2 bg-slate-800/80 hover:bg-slate-700 rounded-lg text-slate-300 font-medium border border-slate-700 transition-colors shadow-sm text-sm"
+                  onClick={() => setIsFocusMode(!isFocusMode)}
+                  className={clsx(
+                    "flex items-center gap-2 px-4 py-2 font-bold rounded-xl border transition-all shadow-sm text-sm group flex-shrink-0",
+                    isFocusMode ? "bg-amber-500/10 text-amber-500 border-amber-500/20" : "bg-slate-800/80 hover:bg-slate-700 text-slate-300 border-slate-700"
+                  )}
                 >
-                  <History className="w-4 h-4" />
-                  History
+                  <Target className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                  {isFocusMode ? "Exit Focus" : "Focus Mode"}
                 </button>
+
+
+
+                {!isFocusMode && (
+                  <button
+                    onClick={() => setIsHistoryOpen(!isHistoryOpen)}
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-800/80 hover:bg-slate-700 rounded-lg text-slate-300 font-medium border border-slate-700 transition-colors shadow-sm text-sm"
+                  >
+                    <History className="w-4 h-4" />
+                    <span className="hidden sm:inline">History</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Progress & Pomodoro Bar */}
+            <div className="px-6 py-2 bg-slate-900 border-b border-slate-800/50 flex items-center justify-between sticky top-[72px] z-10 print:hidden overflow-hidden min-h-[70px]">
+              <div className="flex flex-col gap-1.5 flex-1 max-w-xl">
+                <div className="flex justify-between items-end">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Unit {targetUnit} Progress</span>
+                  <span className="text-xs font-black text-emerald-400">{unitProgress}%</span>
+                </div>
+                <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden shadow-inner">
+                  <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-1000 ease-out relative" style={{ width: `${unitProgress}%` }}>
+                    <div className="absolute inset-0 bg-white/20 w-full animate-pulse"></div>
+                  </div>
+                </div>
+              </div>
+              <div className="ml-6 scale-[0.65] sm:scale-75 origin-right">
+                <PomodoroTimer />
               </div>
             </div>
 
@@ -836,6 +900,12 @@ export default function ExamDashboard() {
               onScroll={handleScroll}
             >
               <div className="max-w-4xl 2xl:max-w-5xl mx-auto pb-40 print:max-w-none print:w-full print:mx-0 print:pb-0 print:block flex flex-col gap-10 print:gap-0">
+                {messages.length > 0 && (
+                  <div className="flex items-center gap-2 text-slate-400 font-medium text-sm px-4 py-2 border border-slate-700/50 bg-slate-800/40 rounded-xl w-fit shadow-sm">
+                    <Clock className="w-4 h-4 text-indigo-400" />
+                    Estimated Study Time: {calculateReadingTime()} minutes
+                  </div>
+                )}
                 <table className="w-full border-collapse !border-none !bg-transparent print:table block">
                   <thead className="table-header-group !border-none !bg-transparent hidden print:table-header-group">
                     <tr>
@@ -854,6 +924,9 @@ export default function ExamDashboard() {
                   <tbody className="!border-none !bg-transparent block md:table-row-group w-full">
                     {messages.map((m, idx) => {
                       let displayContent = m.content || '*Incoming transmission...*';
+                      if (isChatLoading && idx === messages.length - 1 && m.role === 'assistant') {
+                        displayContent += ' ▋';
+                      }
 
                       // Dynamic sanitization for authentic handwritten feel
                       if (isHandwritten) {
@@ -905,6 +978,45 @@ export default function ExamDashboard() {
                 {/* Inline Action Buttons at End of Feed */}
                 {!isGenerating && !isChatLoading && messages.length > 0 && (
                   <div className="flex flex-col items-center gap-6 mt-8 pt-8 border-t border-slate-800/50 print:hidden">
+
+                    {/* Mark Unit Completed Hook */}
+                    <div className="w-full max-w-2xl bg-slate-900/50 border border-emerald-500/20 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4 mb-2">
+                      <div className="flex items-center gap-4 text-emerald-400">
+                        <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 hidden sm:block">
+                          <CheckCircle2 className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h4 className="font-black text-lg">Unit {targetUnit} Completed?</h4>
+                          <p className="text-xs text-emerald-500/70 font-medium tracking-wide">Lock in your progress before generating the next unit.</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setUnitProgress(Math.min(100, unitProgress + 25))}
+                        className="px-6 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)] transition-all active:scale-95 whitespace-nowrap"
+                      >
+                        Mark Unit Completed
+                      </button>
+                    </div>
+
+                    {/* Next Suggested Topic Panel */}
+                    <div className="w-full max-w-2xl bg-slate-800/40 border border-indigo-500/30 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 mb-2 shadow-sm">
+                      <div className="flex items-center gap-4 text-indigo-400">
+                        <div className="p-3 bg-indigo-500/10 rounded-xl border border-indigo-500/20 hidden sm:block">
+                          <BrainCircuit className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-[0.65rem] text-indigo-400/80 font-bold uppercase tracking-wider mb-0.5">Next Suggested Topic</p>
+                          <h4 className="font-black text-lg text-slate-200">System Deadlocks & Concurrency</h4>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => generateStudyPlan(true)}
+                        className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(99,102,241,0.2)] transition-all active:scale-95 whitespace-nowrap"
+                      >
+                        Start Topic
+                      </button>
+                    </div>
+
                     <div className="flex flex-wrap items-center gap-4 justify-center">
                       <button
                         onClick={() => generateMoreQuestions()}

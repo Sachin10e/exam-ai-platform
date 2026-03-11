@@ -4,9 +4,15 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
+interface Subject {
+  id: string;
+  name: string;
+  document_count?: number;
+}
+
 export default function Dashboard() {
   const router = useRouter()
-  const [subjects, setSubjects] = useState<any[]>([])
+  const [subjects, setSubjects] = useState<Subject[]>([])
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(true)
 

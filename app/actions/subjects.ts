@@ -17,7 +17,7 @@ export async function createSubjectAction() {
 
         if (error) throw error
         return { id: data.id }
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('Failed to create subject', err)
         return { error: 'Could not initialize subject container' }
     }

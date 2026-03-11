@@ -10,7 +10,6 @@ function simulate() {
     const chunks = payloads.map(p => new TextEncoder().encode(p))
 
     let buffer = ''
-    let finalClientString = ''
 
     // SERVER SIDE
     const serverEmitted = []

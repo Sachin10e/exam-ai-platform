@@ -1,5 +1,6 @@
-require('dotenv').config({ path: '.env.local' });
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+import dotenv from 'dotenv';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+dotenv.config({ path: '.env.local' });
 
 async function test() {
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -14,7 +15,7 @@ async function test() {
       
       let chunkCount = 0;
       for await (const chunk of result.stream) {
-          chunkCount++;
+          if (chunk) chunkCount++;
       }
       console.log(`[SUCCESS] ${m} (Streaming supported, got ${chunkCount} chunks)`);
     } catch (e) {
