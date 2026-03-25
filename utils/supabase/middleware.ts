@@ -27,9 +27,13 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user = null;
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch (error) {
+    console.error('Middleware Supabase fetch error (Likely missing env vars):', error)
+  }
 
   // Protect explicitly requested routes
   const protectedRoutes = ['/history', '/settings']
