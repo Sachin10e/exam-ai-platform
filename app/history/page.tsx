@@ -12,8 +12,9 @@ const getTagsForSession = (title: string, id: string) => {
 
     // Deterministic hash based on UUID string to ensure stability across renders
     let hash = 0;
-    for (let i = 0; i < id.length; i++) {
-        hash = id.charCodeAt(i) + ((hash << 5) - hash);
+    const safeId = id || 'fallback-id';
+    for (let i = 0; i < safeId.length; i++) {
+        hash = safeId.charCodeAt(i) + ((hash << 5) - hash);
     }
     hash = Math.abs(hash);
 
@@ -97,7 +98,7 @@ export default function HistoryPage() {
                     <History className="w-6 h-6 text-indigo-400" />
                 </div>
                 <div>
-                    <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 tracking-tight">
+                    <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-slate-100 to-slate-400 tracking-tight">
                         History & Archives
                     </h1>
                     <p className="text-slate-400 font-medium mt-1">Review your past study plans and generated mock exams.</p>

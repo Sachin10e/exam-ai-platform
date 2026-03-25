@@ -1,19 +1,13 @@
 'use server';
 
-import { createClient } from '@supabase/supabase-js';
 import { AIResponse } from '../types';
-
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-// We use the service_role key here to bypass RLS policies natively inside the secure Node.js server action
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { createClient } from '@/utils/supabase/server';
 
 export interface StudySessionMeta {
     id: string;
     title: string;
     created_at: string;
+    metadata?: Record<string, unknown>;
 }
 
 export interface StudySession extends StudySessionMeta {
@@ -23,10 +17,24 @@ export interface StudySession extends StudySessionMeta {
 /**
  * Saves a generated study plan to the Supabase database.
  */
-export async function saveSession(title: string, messages: AIResponse[], id?: string) {
+export async function saveSession(title: string, messages: AIResponse[], id?: string, metadata?: Record<string, unknown>) {
     try {
-        const payload: { title: string; messages: AIResponse[]; id?: string } = { title, messages };
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+            return { success: true, guest: true };
+        }
+
+        const payload: Record<string, unknown> = { 
+            user_id: user.id, 
+            title, 
+            messages,
+            updated_at: new Date().toISOString()
+        };
+        
         if (id) payload.id = id;
+        if (metadata) payload.metadata = metadata;
 
         const { data, error } = await supabase
             .from('study_sessions')
@@ -51,9 +59,15 @@ export async function saveSession(title: string, messages: AIResponse[], id?: st
  */
 export async function getSessions(): Promise<StudySessionMeta[]> {
     try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) return [];
+
         const { data, error } = await supabase
             .from('study_sessions')
             .select('id, title, created_at')
+            .eq('user_id', user.id)
             .order('created_at', { ascending: false })
             .limit(50); // Keep sidebar performant
 
@@ -74,10 +88,16 @@ export async function getSessions(): Promise<StudySessionMeta[]> {
  */
 export async function getSessionById(id: string): Promise<StudySession | null> {
     try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) return null;
+
         const { data, error } = await supabase
             .from('study_sessions')
             .select('*')
             .eq('id', id)
+            .eq('user_id', user.id)
             .single();
 
         if (error) {

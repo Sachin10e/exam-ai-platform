@@ -3,6 +3,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Send, Bot, User, Database, ChevronDown, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 import clsx from 'clsx';
 import { getSessionById, getSessions, StudySessionMeta } from '../actions/sessions'
 import { AIResponse } from '../types';
@@ -26,6 +29,8 @@ export default function ChatPage() {
     const [sessions, setSessions] = useState<StudySessionMeta[]>([]);
     const [activeSubjectId, setActiveSubjectId] = useState<string | null>(null);
 
+    const [isHydrated, setIsHydrated] = useState(false);
+
     useEffect(() => {
         getSessions().then(data => {
             setSessions(data);
@@ -34,10 +39,57 @@ export default function ChatPage() {
                 const sessionId = urlParams.get('session');
                 if (sessionId) {
                     loadSessionContext(sessionId);
+                    setIsHydrated(true);
+                } else {
+                    // Phase 1: LocalStorage + DB Recovery Hydration
+                    const loadState = async () => {
+                        try {
+                            const savedStr = localStorage.getItem('chat_active_state');
+                            if (savedStr) {
+                                const saved = JSON.parse(savedStr);
+                                if (saved.activeSubjectId) setActiveSubjectId(saved.activeSubjectId);
+                                
+                                if (saved.currentSessionId) {
+                                    // Resume Database DB
+                                    const sessionDetail = await getSessionById(saved.currentSessionId);
+                                    if (sessionDetail && sessionDetail.messages) {
+                                        setMessages(sessionDetail.messages);
+                                    } else if (saved.messages) {
+                                        setMessages(saved.messages);
+                                    }
+                                } else if (saved.messages) {
+                                    setMessages(saved.messages);
+                                }
+                            }
+                        } catch (e) {
+                            console.error('Failed to hydrate chat state', e)
+                        } finally {
+                            setIsHydrated(true);
+                        }
+                    }
+                    loadState();
                 }
             }
         });
     }, []);
+
+    // Phase 2: Save continuous stream state
+    useEffect(() => {
+        if (!isHydrated) return;
+        
+        let extractedSessionId = null;
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            extractedSessionId = params.get('session');
+        }
+
+        const stateToSave = {
+            activeSubjectId,
+            currentSessionId: extractedSessionId,
+            messages
+        };
+        localStorage.setItem('chat_active_state', JSON.stringify(stateToSave));
+    }, [activeSubjectId, messages, isHydrated]);
 
     useEffect(() => {
         endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -144,7 +196,10 @@ export default function ChatPage() {
                             <div className={clsx("max-w-[85%] rounded-3xl p-5 shadow-sm leading-relaxed text-[0.95rem]", m.role === 'user' ? "bg-indigo-600 text-white rounded-tr-sm" : "bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-sm")}>
                                 {m.role === 'assistant' ? (
                                     <div className="markdown-prose space-y-4">
-                                        <ReactMarkdown>
+                                        <ReactMarkdown 
+                                            remarkPlugins={[remarkMath]} 
+                                            rehypePlugins={[rehypeKatex]}
+                                        >
                                             {m.content ? (m.content + (isTyping && idx === messages.length - 1 && m.role === 'assistant' ? ' ▋' : '')) : (isTyping && idx === messages.length - 1 && m.role === 'assistant' ? '*Incoming transmission...* ▋' : '...')}
                                         </ReactMarkdown>
                                     </div>
@@ -212,9 +267,6 @@ export default function ChatPage() {
                             <Send className="w-5 h-5" />
                         </button>
                     </form>
-                    <div className="text-center mt-3 text-xs text-slate-500 font-medium">
-                        AI Assistant can make mistakes. Verify important information from syllabus.
-                    </div>
                 </div>
             </div>
 

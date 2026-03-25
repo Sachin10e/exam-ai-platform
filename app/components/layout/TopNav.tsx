@@ -1,9 +1,13 @@
 'use client';
 
-import { Search, Bell, Sparkles, Clock, BookOpen, Target, FileText } from 'lucide-react';
+import { Search, Bell, Sparkles, Clock, BookOpen, Target, FileText, Menu } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import { type User as SupabaseUser } from '@supabase/supabase-js';
 import PomodoroTimer from '../study/PomodoroTimer';
+import UserMenu from '../auth/UserMenu';
+import ThemeToggle from './ThemeToggle';
+import { useSidebarStore } from '../../store/sidebar';
 
 const QUICK_ACTIONS = [
     { id: 'start', label: 'Start Study Session', icon: BookOpen, href: '/arena' },
@@ -13,10 +17,15 @@ const QUICK_ACTIONS = [
     { id: 'upload', label: 'Upload Syllabus', icon: FileText, href: '/arena' }
 ];
 
-export default function TopNav() {
+interface TopNavProps {
+    user: SupabaseUser | null;
+}
+
+export default function TopNav({ user }: TopNavProps) {
     const [isTimerOpen, setIsTimerOpen] = useState(false);
     const [isQuickActionsOpen, setIsQuickActionsOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const toggleSidebar = useSidebarStore(state => state.toggleSidebar);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -33,8 +42,16 @@ export default function TopNav() {
     }, []);
 
     return (
-        <header id="global-topnav" className="h-16 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-3xl flex items-center justify-between px-6 sticky top-0 z-40 print:hidden transition-transform duration-300">
-            <div className="flex items-center flex-1 max-w-md">
+        <div className="sticky top-0 z-40 w-full flex flex-col print:hidden transition-transform duration-300">
+
+            <header id="global-topnav" className="h-16 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-3xl flex items-center justify-between px-4 md:px-6">
+                <div className="flex items-center flex-1 max-w-md gap-3">
+                <button 
+                  onClick={toggleSidebar}
+                  className="p-2 -ml-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 rounded-lg transition-colors shrink-0"
+                >
+                    <Menu className="w-5 h-5" />
+                </button>
                 <div className="relative w-full">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                     <input
@@ -45,7 +62,7 @@ export default function TopNav() {
                 </div>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
                 {/* Quick Actions Command Palette Dropdown */}
                 <div className="relative hidden sm:block">
                     <button
@@ -109,20 +126,23 @@ export default function TopNav() {
                         <Clock className="w-5 h-5" />
                     </button>
                     {isTimerOpen && (
-                        <div className="absolute right-0 top-full mt-2 z-50">
+                        <div className="fixed right-4 top-16 mt-2 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
                             <PomodoroTimer />
                         </div>
                     )}
                 </div>
 
-                <Link href="/settings" className="p-2 text-slate-400 hover:text-slate-200 relative transition-colors">
+                <ThemeToggle />
+
+                <Link href="/settings" prefetch={false} className="p-2 text-slate-400 hover:text-slate-200 relative transition-colors">
                     <Bell className="w-5 h-5" />
                     <span className="absolute top-1 right-2 w-2 h-2 bg-rose-500 rounded-full"></span>
                 </Link>
-                <Link href="/settings">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-fuchsia-500 border-2 border-slate-800 cursor-pointer shadow-md hover:scale-105 transition-transform"></div>
-                </Link>
+                <div className="ml-2 flex items-center">
+                    <UserMenu initialUser={user} />
+                </div>
             </div>
-        </header>
+            </header>
+        </div>
     );
 }

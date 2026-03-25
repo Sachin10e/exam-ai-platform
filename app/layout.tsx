@@ -18,35 +18,35 @@ const patrick = Patrick_Hand({
   subsets: ["latin"],
 });
 
-import Sidebar from "./components/layout/Sidebar";
-import TopNav from "./components/layout/TopNav";
 import GlobalShortcuts from "./components/layout/GlobalShortcuts";
+import LayoutShell from "./components/layout/LayoutShell";
+import { createClient } from "@/utils/supabase/server";
+import Providers from "./providers/Providers";
 
 export const metadata: Metadata = {
   title: "Exam Survival AI Platform",
   description: "Generate structured study plans and ace your exams with AI.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${patrick.variable} antialiased overflow-hidden print:overflow-visible print:h-auto print:block`}
       >
         <GlobalShortcuts />
-        <div className="flex h-screen print:h-auto print:block print:overflow-visible bg-slate-950 text-slate-100">
-          <Sidebar />
-          <div className="flex-1 flex flex-col relative overflow-hidden min-w-0 print:block print:overflow-visible print:h-auto">
-            <TopNav />
-            <main className="flex-1 overflow-y-auto print:overflow-visible print:h-auto print:block custom-scrollbar relative">
-              {children}
-            </main>
-          </div>
-        </div>
+        <Providers>
+          <LayoutShell user={user}>
+            {children}
+          </LayoutShell>
+        </Providers>
       </body>
     </html>
   );

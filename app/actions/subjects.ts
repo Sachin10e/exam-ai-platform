@@ -1,17 +1,19 @@
 'use server'
 
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/utils/supabase/server'
 
-const serviceSupabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
-export async function createSubjectAction() {
+export async function createSubjectAction(customName?: string) {
     try {
-        const { data, error } = await serviceSupabase
+        const supabase = await createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return { id: 'guest-local' }
+
+        const { data, error } = await supabase
             .from('subjects')
-            .insert([{ name: `Knowledge Base ${new Date().toISOString().split('T')[0]}` }])
+            .insert([{ 
+                name: customName || `Study Plan ${new Date().toISOString().split('T')[0]}`,
+                user_id: user.id
+            }])
             .select()
             .single()
 

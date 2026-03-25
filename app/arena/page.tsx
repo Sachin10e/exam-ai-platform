@@ -4,10 +4,20 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { uploadPdfAction } from '../actions/upload'
 import { createSubjectAction } from '../actions/subjects'
-import { Download, FileText, Send, Loader2, Target, Briefcase, Zap, BrainCircuit, Sparkles, ChevronFirst, PenTool, LayoutTemplate, Clock4, FlaskConical, LayoutDashboard, History, Settings, LogOut, Search, CheckCircle2, Copy, Bookmark, MoreVertical, X, Share2, Printer, ListTodo, GraduationCap, CheckCircle, UploadCloud, File as FileIcon, ChevronRight, ArrowUp, ArrowDown, PanelLeftClose, PanelLeftOpen, PlusCircle, Clock } from 'lucide-react'
+import { Download, FileText, Send, Loader2, Target, Briefcase, Zap, BrainCircuit, Sparkles, ChevronFirst, PenTool, LayoutTemplate, Clock4, FlaskConical, LayoutDashboard, History, Settings, Settings2, LogOut, Search, CheckCircle2, Copy, Bookmark, MoreVertical, X, Share2, Printer, ListTodo, GraduationCap, CheckCircle, UploadCloud, File as FileIcon, ChevronRight, ArrowUp, ArrowDown, PanelLeftClose, PanelLeftOpen, PlusCircle, Clock, Circle, BarChart3, AlignLeft, RefreshCcw, Lock, ArrowRight, BookOpen, Layers, Maximize2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import clsx from 'clsx'
-import ReactMarkdown from 'react-markdown'
+const ReactMarkdown = dynamic(() => import('react-markdown'), { 
+  ssr: false, 
+  loading: () => (
+    <div className="animate-pulse flex flex-col gap-5 my-6">
+      <div className="h-8 bg-slate-800/40 rounded-lg w-1/3"></div>
+      <div className="h-4 bg-slate-800/40 rounded w-full"></div>
+      <div className="h-4 bg-slate-800/40 rounded w-5/6"></div>
+      <div className="h-4 bg-slate-800/40 rounded w-11/12"></div>
+    </div>
+  ) 
+})
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
@@ -20,8 +30,12 @@ import type { ExamQuestion } from '../components/study/MockExamModal'
 const MockExamModal = dynamic(() => import('../components/study/MockExamModal'), { ssr: false })
 const MermaidDiagram = dynamic(() => import('../components/ai/MermaidDiagram'), { ssr: false })
 import { saveSession, getSessions, getSessionById, StudySessionMeta } from '../actions/sessions'
+import { logStudyEvent } from '../actions/analytics'
+import { getUnitProgress } from '@/lib/analytics/unitProgress'
 import PomodoroTimer from '../components/study/PomodoroTimer'
 import { AIResponse } from '../types'
+import { getLastSessionId, setLastSessionId } from '../actions/preferences'
+import { useToast } from '../components/ui/Toast'
 
 // Local binding obsolete, using AIResponse globally
 
@@ -78,28 +92,28 @@ const ThrottledMarkdown = React.memo(({ content }: { content: string }) => {
       remarkPlugins={[remarkGfm, remarkMath]}
       rehypePlugins={[rehypeKatex, rehypeHighlight]}
       components={{
-        h1: ({ node, ...props }) => <h1 className="text-5xl md:text-6xl font-black text-white print:text-[#1E1E1E] tracking-tight mt-12 mb-6 border-b border-slate-700/50 print:border-[#E5E7EB] pb-4" {...props} />,
-        h2: ({ node, ...props }) => <h2 className="text-3xl md:text-4xl font-bold text-white print:text-[#1E1E1E] mt-10 mb-5" {...props} />,
-        h3: ({ node, ...props }) => <h3 className="text-2xl md:text-3xl font-semibold text-white print:text-[#1E1E1E] mt-8 mb-4" {...props} />,
-        h4: ({ node, ...props }) => <h4 className="text-xl md:text-2xl font-bold text-white mt-8 mb-3 tracking-tight" {...props} />,
-        p: ({ node, ...props }) => <p className="text-xl md:text-[1.35rem] leading-relaxed text-slate-100 print:text-[#1E1E1E] mb-6 font-normal" {...props} />,
-        ul: ({ node, ...props }) => <ul className="list-disc pl-6 mb-6 space-y-3 text-xl md:text-[1.35rem] text-slate-100 print:text-[#1E1E1E] font-normal" {...props} />,
-        ol: ({ node, ...props }) => <ol className="list-decimal pl-6 mb-6 space-y-3 text-xl md:text-[1.35rem] text-slate-100 print:text-[#1E1E1E] font-normal" {...props} />,
+        h1: ({ node, ...props }) => <h1 className="text-4xl md:text-5xl font-black text-slate-100 print:text-[#1E1E1E] tracking-tight mt-14 mb-8 border-b border-slate-700/50 print:border-[#E5E7EB] pb-4" {...props} />,
+        h2: ({ node, ...props }) => <h2 className="text-2xl md:text-3xl font-bold text-slate-100 print:text-[#1E1E1E] mt-12 mb-6" {...props} />,
+        h3: ({ node, ...props }) => <h3 className="text-xl md:text-2xl font-semibold text-slate-100 print:text-[#1E1E1E] mt-10 mb-5" {...props} />,
+        h4: ({ node, ...props }) => <h4 className="text-lg md:text-xl font-bold text-slate-100 mt-10 mb-4 tracking-tight" {...props} />,
+        p: ({ node, ...props }) => <p className="text-lg md:text-[1.15rem] leading-[1.85] text-slate-100 print:text-[#1E1E1E] mb-8 font-normal" {...props} />,
+        ul: ({ node, ...props }) => <ul className="list-disc pl-6 mb-8 space-y-4 text-lg md:text-[1.15rem] leading-[1.85] text-slate-100 print:text-[#1E1E1E] font-normal" {...props} />,
+        ol: ({ node, ...props }) => <ol className="list-decimal pl-6 mb-8 space-y-4 text-lg md:text-[1.15rem] leading-[1.85] text-slate-100 print:text-[#1E1E1E] font-normal" {...props} />,
         li: ({ node, ...props }) => <li className="pl-2" {...props} />,
-        strong: ({ node, ...props }) => <strong className="font-bold text-white print:text-black" {...props} />,
+        strong: ({ node, ...props }) => <strong className="font-bold text-slate-100 print:text-black" {...props} />,
         em: ({ node, ...props }) => <em className="italic text-slate-200 print:text-black" {...props} />,
         a: ({ node, ...props }) => <a className="text-blue-300 hover:text-blue-200 print:text-blue-700 underline underline-offset-4" {...props} />,
         blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-slate-600 pl-6 py-2 my-6 italic text-slate-200 print:text-[#1E1E1E] bg-slate-800/20 print:bg-slate-50 rounded-r-xl" {...props} />,
         hr: ({ node, ...props }) => <hr className="border-slate-800 border-t-2 my-12" {...props} />,
         table: ({ node, ...props }) => (
-          <div className="overflow-x-auto my-8 rounded-xl ring-1 ring-slate-700/50 bg-slate-900/20">
-            <table className="w-full text-left border-collapse" {...props} />
+          <div className="overflow-x-auto my-8 rounded-xl ring-1 ring-slate-700/50 bg-slate-900/20 shadow-lg block max-w-full">
+            <table className="w-full text-left border-collapse min-w-[600px]" {...props} />
           </div>
         ),
-        thead: ({ node, ...props }) => <thead className="bg-slate-800/80 border-b border-slate-700 text-slate-300 text-sm uppercase tracking-wider" {...props} />,
-        th: ({ node: _n1, ...props }) => <th className="px-6 py-4 font-bold" {...props} />,
-        td: ({ node: _n2, ...props }) => <td className="px-6 py-4 border-b border-slate-800/50 text-slate-300 bg-slate-900/30 font-normal" {...props} />,
-        tr: ({ node: _n3, ...props }) => <tr className="hover:bg-slate-800/20 transition-colors" {...props} />,
+        thead: ({ node, ...props }) => <thead className="bg-slate-800/80 border-b-2 border-slate-700 text-slate-300 text-sm uppercase tracking-wider" {...props} />,
+        th: ({ node: _n1, ...props }) => <th className="px-6 py-4 font-bold border border-slate-700/50 whitespace-nowrap" {...props} />,
+        td: ({ node: _n2, ...props }) => <td className="px-6 py-4 border border-slate-700/50 text-slate-300 font-normal leading-relaxed" {...props} />,
+        tr: ({ node: _n3, ...props }) => <tr className="hover:bg-slate-800/40 even:bg-slate-800/20 transition-colors" {...props} />,
         pre: ({ node: _n4, children, ...props }: React.ComponentPropsWithoutRef<'pre'> & { node?: unknown }) => {
           let language = 'Code'
           const childArray = React.Children.toArray(children)
@@ -112,7 +126,11 @@ const ThrottledMarkdown = React.memo(({ content }: { content: string }) => {
 
               // 🌟 MERMAID DIAGRAM INTERCEPTOR 🌟
               if (language === 'mermaid') {
-                return <MermaidDiagram chart={String(childProps.children).replace(/\n$/, '')} />
+                return (
+                  <div className="my-8 rounded-xl bg-slate-900 p-4 border border-white/10 shadow-[0_0_15px_rgba(0,0,0,0.2)] overflow-x-auto print:break-inside-avoid">
+                    <MermaidDiagram chart={String(childProps.children).replace(/\n$/, '')} />
+                  </div>
+                )
               }
             }
             return (
@@ -147,6 +165,7 @@ const ThrottledMarkdown = React.memo(({ content }: { content: string }) => {
 ThrottledMarkdown.displayName = "ThrottledMarkdown";
 
 export default function ExamDashboard() {
+  const { toast } = useToast()
   const [subjectId, setSubjectId] = useState<string>('')
 
   const [uploading, setUploading] = useState(false)
@@ -156,6 +175,7 @@ export default function ExamDashboard() {
 
   // Sidebar Toggle State
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [guestContextText, setGuestContextText] = useState('')
 
   // Configuration State
   const [urgency, setUrgency] = useState<'Cram' | 'Deep'>('Cram')
@@ -210,6 +230,13 @@ export default function ExamDashboard() {
     return Math.ceil(words / 200); // Average 200 WPM
   }
 
+  // Close the configuration sidebar by default on small screens
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setIsSidebarOpen(false)
+    }
+  }, [])
+
   // Effect for Focus Mode body class
   useEffect(() => {
     if (isFocusMode) {
@@ -228,9 +255,15 @@ export default function ExamDashboard() {
   useEffect(() => {
     if (hasGenerated && !isGenerating && !isChatLoading && messages.length > 0) {
       const title = `Unit ${targetUnit}: ${urgency} (${examType})`
-      saveSession(title, messages, currentSessionId || undefined).then(res => {
+      const metadataParams = {
+          subjectId, urgency, examType, midType, answerLength, targetGrade, explanationStyle, targetUnit, unitProgress
+      };
+      saveSession(title, messages, currentSessionId || undefined, metadataParams).then(res => {
         if (res.success && res.data) {
-          if (!currentSessionId) setCurrentSessionId(res.data.id)
+          if (!currentSessionId) {
+             setCurrentSessionId(res.data.id)
+          }
+          setLastSessionId(res.data.id);
           getSessions().then(data => setHistorySessions(data))
         }
       })
@@ -238,12 +271,113 @@ export default function ExamDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGenerating, isChatLoading])
 
+  const refreshUnitProgress = async (sid: string, uid: number) => {
+      const currentVal = await getUnitProgress(sid, uid.toString());
+      setUnitProgress(currentVal);
+  }
+
+  useEffect(() => {
+     if (hasGenerated && subjectId && targetUnit) {
+         refreshUnitProgress(subjectId, targetUnit);
+     }
+  }, [hasGenerated, subjectId, targetUnit]);
+
   useEffect(() => {
     // Only auto-scroll to the bottom when explicitly loading manual chat messages, avoiding yanking during syllabus generation.
     if (isChatLoading) {
-      endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' })
+      // scrollIntoView removed to stop UI jumping
     }
   }, [messages, isChatLoading])
+
+  // ====== [ NEW ] STATE PERSISTENCE & HYDRATION ======
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // 1. Fetch user session & data on page load
+  useEffect(() => {
+    const loadState = async () => {
+      try {
+        let sessionToLoad = null;
+
+        // PRIORITIZE CLOUD: Server Check for Absolute Last Active Session
+        const cloudLastSessionId = await getLastSessionId();
+        if (cloudLastSessionId) {
+            sessionToLoad = await getSessionById(cloudLastSessionId);
+            if (sessionToLoad) {
+                setCurrentSessionId(sessionToLoad.id);
+                if (sessionToLoad.metadata) {
+                   const m = sessionToLoad.metadata;
+                   if (m.subjectId) setSubjectId(m.subjectId as string);
+                   if (m.urgency) setUrgency(m.urgency as 'Cram' | 'Deep');
+                   if (m.examType) setExamType(m.examType as 'Mid' | 'Semester');
+                   if (m.midType) setMidType(m.midType as 'Mid 1' | 'Mid 2');
+                   if (m.answerLength) setAnswerLength(m.answerLength as 'Short' | 'Long');
+                   if (m.targetGrade) setTargetGrade(m.targetGrade as 'Pass' | 'Top');
+                   if (m.explanationStyle) setExplanationStyle(m.explanationStyle as 'Academic' | 'Simplified');
+                   if (m.targetUnit) setTargetUnit(Number(m.targetUnit));
+                   if (m.unitProgress !== undefined && m.unitProgress !== null) setUnitProgress(Number(m.unitProgress));
+                   if (sessionToLoad.messages.length > 0) setHasGenerated(true);
+                   setMessages(sessionToLoad.messages);
+                } else if (sessionToLoad.messages) {
+                   setMessages(sessionToLoad.messages);
+                   if (sessionToLoad.messages.length > 0) setHasGenerated(true);
+                }
+            }
+        }
+        
+        // FALLBACK: If Cloud sync fails or is entirely new, rely on LocalStorage Snapshot
+        if (!sessionToLoad) {
+            const savedStateStr = localStorage.getItem('arena_active_state');
+            if (savedStateStr) {
+               const saved = JSON.parse(savedStateStr);
+               
+               if (saved.subjectId) setSubjectId(saved.subjectId);
+               if (saved.urgency) setUrgency(saved.urgency);
+               if (saved.examType) setExamType(saved.examType);
+               if (saved.midType) setMidType(saved.midType);
+               if (saved.answerLength) setAnswerLength(saved.answerLength);
+               if (saved.targetGrade) setTargetGrade(saved.targetGrade);
+               if (saved.explanationStyle) setExplanationStyle(saved.explanationStyle);
+               if (saved.targetUnit) setTargetUnit(saved.targetUnit);
+               if (saved.unitProgress) setUnitProgress(saved.unitProgress);
+               if (saved.hasGenerated) setHasGenerated(saved.hasGenerated);
+               if (saved.currentSessionId) setCurrentSessionId(saved.currentSessionId);
+               if (saved.files) setFiles(saved.files); 
+               if (saved.isSidebarOpen !== undefined) setIsSidebarOpen(saved.isSidebarOpen);
+
+               if (saved.currentSessionId) {
+                 const sessionDetail = await getSessionById(saved.currentSessionId);
+                 if (sessionDetail && sessionDetail.messages) {
+                   setMessages(sessionDetail.messages);
+                 } else if (saved.messages && saved.messages.length > 0) {
+                   setMessages(saved.messages);
+                 }
+               } else if (saved.messages && saved.messages.length > 0) {
+                 setMessages(saved.messages);
+               }
+            }
+        }
+
+      } catch (e) {
+        console.error("Hydration Error:", e);
+      } finally {
+        setIsHydrated(true);
+      }
+    };
+    loadState();
+  }, []);
+
+  // 3. Save state gracefully continuously into localStorage preventing reload resets
+  useEffect(() => {
+    if (!isHydrated) return; // Wait until initial load finishes to avoid overwriting with empties
+    const stateToSave = {
+       subjectId, urgency, examType, midType, answerLength, targetGrade, explanationStyle,
+       targetUnit, unitProgress, hasGenerated, currentSessionId,
+       isSidebarOpen,
+       messages // Save messages locally as fallback in case DB hook fails or hasn't committed
+    };
+    localStorage.setItem('arena_active_state', JSON.stringify(stateToSave));
+  }, [subjectId, urgency, examType, midType, answerLength, targetGrade, explanationStyle, targetUnit, unitProgress, hasGenerated, currentSessionId, isSidebarOpen, messages, isHydrated]);
+  // =====================================================
 
   useEffect(() => {
     if (isHandwritten) {
@@ -293,6 +427,7 @@ export default function ExamDashboard() {
     setIsGenerating(true)
 
     let activeSubjectId = subjectId;
+    let accumGuestText = guestContextText;
 
     // BATCH UPLOAD QUEUED FILES
     const unuploadedFiles = files.filter(f => !uploadedFiles.has(f.name));
@@ -301,7 +436,8 @@ export default function ExamDashboard() {
       let currentSubjectId = subjectId;
       if (!currentSubjectId) {
         try {
-          const res = await createSubjectAction();
+          const baseName = unuploadedFiles[0].name.replace(/\.[^/.]+$/, "");
+          const res = await createSubjectAction(baseName);
           if (res.id) currentSubjectId = res.id;
         } catch {
           setIsGenerating(false); setUploading(false); return alert('Database err');
@@ -315,14 +451,25 @@ export default function ExamDashboard() {
           formData.append('file', file)
           formData.append('subjectId', currentSubjectId)
           const data = await uploadPdfAction(formData)
+          if (data.error) { toast(data.error, 'error'); setIsGenerating(false); return }
           if (data.subjectId) currentSubjectId = data.subjectId
+          
+          if (data.isGuest && data.text) {
+              accumGuestText += '\n\n--- DOCUMENT BOUNDARY ---\n\n' + data.text;
+          }
         } catch (err) {
           console.error('Fail to upload chunk', err)
+          toast('Failed to upload file. Please try again.', 'error')
         }
+      }
+      
+      if (accumGuestText !== guestContextText) {
+          setGuestContextText(accumGuestText);
       }
       if (currentSubjectId !== subjectId) setSubjectId(currentSubjectId);
       setUploadedFiles(prev => new Set([...prev, ...unuploadedFiles.map(f => f.name)]))
       setUploading(false)
+      if (unuploadedFiles.length > 0) toast(`${unuploadedFiles.length} file(s) uploaded successfully`, 'success')
 
       // Update the activeSubjectId to guarantee the fetch sees it immediately
       activeSubjectId = currentSubjectId;
@@ -341,7 +488,7 @@ export default function ExamDashboard() {
       const res = await fetch('/api/generate-plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subjectId: activeSubjectId, urgency, examType, midType, answerLength, targetGrade, explanationStyle, isAppend, targetUnit: newTargetUnit })
+        body: JSON.stringify({ subjectId: activeSubjectId, urgency, examType, midType, answerLength, targetGrade, explanationStyle, isAppend, targetUnit: newTargetUnit, guestContextText: accumGuestText })
       })
 
       if (!res.ok || !res.body) {
@@ -360,10 +507,13 @@ export default function ExamDashboard() {
       setHasGenerated(true)
       setIsSidebarOpen(false)
 
+      // Analytics Tracking
+      logStudyEvent({ event_type: 'study_session', subject_id: activeSubjectId, unit_id: newTargetUnit.toString() }).then(() => {
+         refreshUnitProgress(activeSubjectId, newTargetUnit);
+      });
+
       const targetIdx = isAppend ? messages.length : 1;
-      setTimeout(() => {
-        document.getElementById(`message-${targetIdx}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }, 150)
+      // Removed forced scroll jump on generation
 
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
@@ -392,7 +542,7 @@ export default function ExamDashboard() {
     } catch (err: unknown) {
       console.error('Error auto-generating PDF:', err);
       const errMsg = err instanceof Error ? err.message : 'Failed to parse syllabus';
-      alert("Error generating plan: " + errMsg);
+      toast(errMsg, 'error');
     } finally {
       setIsGenerating(false)
     }
@@ -411,7 +561,12 @@ export default function ExamDashboard() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages, subjectId })
+        body: JSON.stringify({ 
+           messages: newMessages, 
+           subjectId,
+           arenaParams: { urgency, targetGrade, answerLength, explanationStyle, targetUnit },
+           guestContextText
+        })
       })
 
       if (!res.ok || !res.body) throw new Error('Failed to fetch')
@@ -419,6 +574,12 @@ export default function ExamDashboard() {
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       setMessages((prev) => [...prev, { role: 'assistant', content: '' }])
+
+      // Analytics Tracking
+      logStudyEvent({ event_type: 'question_asked', subject_id: subjectId, unit_id: targetUnit.toString() }).then(() => {
+          refreshUnitProgress(subjectId, targetUnit);
+      });
+
       let accumulatedMessage = ''
 
       while (true) {
@@ -434,6 +595,7 @@ export default function ExamDashboard() {
     } catch (err) {
       console.error(err)
       setMessages((prev) => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error.' }])
+      toast('Chat message failed. Please try again.', 'error')
     }
     setIsChatLoading(false)
   }
@@ -451,7 +613,12 @@ export default function ExamDashboard() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: contextMessages, subjectId })
+        body: JSON.stringify({ 
+           messages: contextMessages, 
+           subjectId,
+           arenaParams: { urgency, targetGrade, answerLength, explanationStyle, targetUnit },
+           guestContextText
+        })
       });
 
       if (!res.ok || !res.body) throw new Error('Failed to fetch');
@@ -493,7 +660,11 @@ export default function ExamDashboard() {
       const response = await fetch('/api/extract-flashcards', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ unitText: aiMessages }),
+        body: JSON.stringify({ 
+           context: aiMessages, 
+           subjectId: subjectId,
+           guestContextText
+        })
       });
 
       if (!response.ok) throw new Error('Failed to extract flashcards');
@@ -502,10 +673,16 @@ export default function ExamDashboard() {
       if (Array.isArray(extractedCards)) {
         setFlashcards(extractedCards);
         setShowFlashcards(true);
+        toast('Flashcards extracted successfully!', 'success');
+
+        // Analytics Tracking
+        logStudyEvent({ event_type: 'flashcard_review', subject_id: subjectId, unit_id: targetUnit.toString() }).then(() => {
+            refreshUnitProgress(subjectId, targetUnit);
+        });
       }
     } catch (error) {
       console.error(error);
-      alert('Failed to generate flashcards. Please try again.');
+      toast('Failed to generate flashcards. Please try again.', 'error');
     } finally {
       setIsExtractingFlashcards(false);
     }
@@ -520,7 +697,7 @@ export default function ExamDashboard() {
       const response = await fetch('/api/generate-exam', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ unitText: aiMessages }),
+        body: JSON.stringify({ unitText: aiMessages, subjectId: subjectId, guestContextText }),
       });
 
       if (!response.ok) throw new Error('Failed to extract mock exam');
@@ -529,10 +706,11 @@ export default function ExamDashboard() {
       if (Array.isArray(extractedExam)) {
         setExamQuestions(extractedExam);
         setShowExam(true);
+        toast('Mock exam generated!', 'success');
       }
     } catch (error) {
       console.error(error);
-      alert('Failed to generate mock exam. Please try again.');
+      toast('Failed to generate mock exam. Please try again.', 'error');
     } finally {
       setIsExtractingExam(false);
     }
@@ -559,18 +737,16 @@ export default function ExamDashboard() {
   }
 
   const scrollToTargetUnit = () => {
-    // Scroll to the latest message which represents the current target unit.
-    const targetId = `message-${messages.length > 0 ? messages.length - 1 : 0}`
-    document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    // Scroll intentionally removed to prevent layout jumping layout breakage
   }
 
   const scrollToBottom = () => {
-    endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' })
+    // Scroll intentionally removed to prevent layout jumping layout breakage
   }
 
   return (
     <div className={clsx(
-      "flex h-screen print:h-auto print:block print:overflow-visible bg-slate-950 print:bg-[#fdfaf0] text-slate-100 print:text-[#1E1E1E] font-sans overflow-hidden selection:bg-indigo-500/30 relative",
+      "flex h-full print:h-auto print:block print:overflow-visible bg-slate-950 print:bg-[#fdfaf0] text-slate-100 print:text-[#1E1E1E] font-sans selection:bg-indigo-500/30 relative",
       isHandwritten ? "print-handwritten" : ""
     )}>
 
@@ -581,15 +757,47 @@ export default function ExamDashboard() {
         <div className="absolute bottom-[-20%] left-[20%] w-[50%] h-[50%] bg-blue-900/10 rounded-full blur-[140px] mix-blend-screen animate-blob animation-delay-4000"></div>
       </div>
 
+      {/* Mobile Configuration Overlay */}
+      <div 
+         onClick={() => setIsSidebarOpen(false)}
+         className={clsx(
+           "fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden transition-opacity duration-300",
+           isSidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+         )}
+      />
+
       {/* LEFT SIDEBAR: CONFIGURATION */}
       <div className={clsx(
-        "bg-slate-900/40 backdrop-blur-3xl border-r border-slate-700/30 flex flex-col z-10 shadow-2xl relative transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] print:hidden",
-        isSidebarOpen ? "w-80 p-6 opacity-100" : "w-0 p-0 overflow-hidden border-none opacity-0 invisible"
+        "bg-slate-900/40 backdrop-blur-3xl border-r border-slate-700/30 flex flex-col z-50 md:z-10 shadow-2xl fixed md:sticky top-0 inset-y-0 left-0 h-[100dvh] md:h-[calc(100vh-64px)] transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] print:hidden",
+        isSidebarOpen ? "w-80 max-w-[85vw] p-4 md:p-6 opacity-100 translate-x-0" : "w-0 p-0 overflow-hidden border-none opacity-0 invisible -translate-x-full"
       )}>
-        <h2 className="text-2xl flex items-center gap-2 font-bold bg-gradient-to-br from-indigo-400 to-purple-500 bg-clip-text text-transparent mb-8 tracking-tight whitespace-nowrap">
-          <GraduationCap className="w-8 h-8 text-indigo-500" />
-          Pro-Prep AI
-        </h2>
+        <div className="flex flex-col gap-4 mb-6 shrink-0">
+          <div className="flex items-center justify-between">
+              <h2 className="text-2xl flex items-center gap-2 font-black text-slate-100 tracking-tight whitespace-nowrap">
+                <Settings2 className="w-7 h-7 text-indigo-500" />
+                Study Config
+              </h2>
+              <button onClick={() => setIsSidebarOpen(false)} className="p-2 bg-slate-800/50 rounded-lg text-slate-400 hover:text-white transition-colors">
+                  <X className="w-5 h-5" />
+              </button>
+          </div>
+          <button 
+             onClick={() => {
+                localStorage.removeItem('arena_active_state');
+                setSubjectId('');
+                setTargetUnit(1);
+                setHasGenerated(false);
+                setMessages([]);
+                setFiles([]);
+                setUploadedFiles(new Set());
+                setCurrentSessionId(null);
+                setGuestContextText('');
+             }}
+             className="w-full py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-sm"
+          >
+             <PlusCircle className="w-4 h-4" /> Start New Plan
+          </button>
+        </div>
 
         <div className="flex-1 overflow-y-auto space-y-8 pr-2 custom-scrollbar">
 
@@ -685,7 +893,7 @@ export default function ExamDashboard() {
                 </div>
                 <AnimatePresence>
                   {examType === 'Mid' && (
-                    <motion.div initial={{ opacity: 0, height: 0, marginTop: 0 }} animate={{ opacity: 1, height: 'auto', marginTop: 12 }} exit={{ opacity: 0, height: 0, marginTop: 0 }} className="flex bg-slate-950/80 p-1 rounded-xl border border-slate-800/80 relative shadow-inner overflow-hidden">
+                    <motion.div initial={{ opacity: 0, height: 0, marginTop: 12 }} animate={{ opacity: 1, height: 'auto', marginTop: 12 }} exit={{ opacity: 0, height: 0, marginTop: 0 }} className="flex bg-slate-950/80 p-1 rounded-xl border border-slate-800/80 relative shadow-inner overflow-hidden">
                       {['Mid 1', 'Mid 2'].map((option) => (
                         <button
                           key={option}
@@ -773,11 +981,11 @@ export default function ExamDashboard() {
         </div>
 
         {/* Generate Button Fixed to Bottom */}
-        <div className="pt-6 border-t border-slate-700/30 mt-2">
+        <div className="pt-4 pb-6 mt-auto shrink-0 border-t border-slate-700/30">
           <button
             onClick={() => generateStudyPlan(false)}
-            disabled={isGenerating || uploading}
-            className="w-full relative overflow-hidden group py-3.5 px-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-500 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(99,102,241,0.4)] active:scale-[0.98] transition-all focus:ring-4 focus:ring-indigo-500/20 disabled:opacity-50 disabled:grayscale flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(99,102,241,0.2)]"
+            disabled={isGenerating || uploading || (files.length === 0 && !subjectId)}
+            className="w-full relative overflow-hidden group py-3.5 px-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-500 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(99,102,241,0.4)] active:scale-[0.98] transition-all focus:ring-4 focus:ring-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:grayscale flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(99,102,241,0.2)]"
           >
             <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full duration-1000 ease-in-out transition-transform"></div>
             {isGenerating ? (
@@ -790,7 +998,18 @@ export default function ExamDashboard() {
       </div>
 
       {/* MAIN AREA: TABS & CONTENT */}
-      <div className="flex-1 flex flex-col print:block relative z-10 bg-transparent">
+      <div className="flex-1 flex flex-col overflow-y-auto min-h-0 relative z-10 bg-transparent custom-scrollbar print:block">
+        
+        {/* Floating Open Config Button */}
+        {!isSidebarOpen && (
+           <button 
+             onClick={() => setIsSidebarOpen(true)}
+             className="absolute top-4 left-4 md:left-4 z-50 p-3 bg-slate-900/80 backdrop-blur border border-slate-700/50 rounded-xl shadow-xl hover:bg-slate-800 text-slate-300 transition-all print:hidden group"
+             title="Open Study Configuration"
+           >
+             <Settings2 className="w-5 h-5 group-hover:rotate-45 transition-transform duration-300" />
+           </button>
+        )}
 
         {/* Loading Overlay */}
         <AnimatePresence>
@@ -848,25 +1067,39 @@ export default function ExamDashboard() {
                 </button>
                 <div className="h-6 w-1 bg-indigo-500 rounded-full shrink-0"></div>
                 <h3 className="text-lg md:text-xl font-bold text-slate-100 tracking-tight shrink-0">Unit {targetUnit}</h3>
-                
-                <div className="hidden sm:flex items-center gap-4 w-full max-w-sm ml-4 border-l border-slate-700/50 pl-4">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest shrink-0">Progress</span>
-                    <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                       <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${unitProgress}%` }}></div>
-                    </div>
-                    <span className="text-xs font-bold text-emerald-400 shrink-0">{unitProgress}%</span>
-                </div>
               </div>
 
               <div className="flex items-center gap-3 shrink-0">
                 <button
+                  onClick={() => generateStudyPlan(true)}
+                  className="p-2 bg-slate-800/80 hover:bg-slate-700 rounded-lg text-slate-300 border border-slate-700 transition-colors shadow-sm"
+                  title="Regenerate Section"
+                >
+                  <RefreshCcw className="w-4 h-4 text-emerald-400" />
+                </button>
+                <button
+                  onClick={() => window.print()}
+                  className="p-2 bg-slate-800/80 hover:bg-slate-700 rounded-lg text-slate-300 border border-slate-700 transition-colors shadow-sm"
+                  title="Export Notes"
+                >
+                  <Download className="w-4 h-4 text-amber-400" />
+                </button>
+                <button
+                  onClick={() => {}}
+                  className="p-2 bg-slate-800/80 hover:bg-slate-700 rounded-lg text-slate-300 border border-slate-700 transition-colors shadow-sm mr-2"
+                  title="Bookmark"
+                >
+                  <Bookmark className="w-4 h-4 text-fuchsia-400" />
+                </button>
+
+                <button
                   onClick={() => setIsFocusMode(!isFocusMode)}
                   className={clsx(
                     "flex items-center gap-2 px-3 py-1.5 font-bold rounded-xl border transition-all shadow-sm text-xs group flex-shrink-0",
-                    isFocusMode ? "bg-amber-500/10 text-amber-500 border-amber-500/20" : "bg-slate-800/80 hover:bg-slate-700 text-slate-300 border-slate-700"
+                    isFocusMode ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" : "bg-slate-800/80 hover:bg-slate-700 text-slate-300 border-slate-700"
                   )}
                 >
-                  <Target className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                  <Maximize2 className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
                   <span className="hidden md:inline">{isFocusMode ? "Exit Focus" : "Focus Mode"}</span>
                 </button>
 
@@ -880,20 +1113,7 @@ export default function ExamDashboard() {
                   </button>
                 )}
 
-                {/* Local Timer Popover for Arena */}
-                <div className="relative ml-2">
-                    <button 
-                        onClick={() => setIsTimerOpen(!isTimerOpen)}
-                        className="p-2 bg-slate-800/80 hover:bg-slate-700 rounded-xl border border-slate-700 text-slate-300 transition-colors shadow-sm"
-                    >
-                        <Clock className="w-4 h-4 text-indigo-400" />
-                    </button>
-                    {isTimerOpen && (
-                        <div className="absolute right-0 top-full mt-2 z-50">
-                            <PomodoroTimer />
-                        </div>
-                    )}
-                </div>
+                {/* Local Timer Popover for Arena - Removed in favor of floating widget */}
               </div>
             </div>
 
@@ -903,7 +1123,7 @@ export default function ExamDashboard() {
               ref={scrollContainerRef}
               onScroll={handleScroll}
             >
-              <div className="max-w-4xl 2xl:max-w-5xl mx-auto pb-40 print:max-w-none print:w-full print:mx-0 print:pb-0 print:block flex flex-col gap-10 print:gap-0">
+              <div className="max-w-[800px] mx-auto pb-40 print:max-w-none print:w-full print:mx-0 print:pb-0 print:block flex flex-col gap-10 print:gap-0">
                 {messages.length > 0 && (
                   <div className="flex items-center gap-2 text-slate-400 font-medium text-sm px-4 py-2 border border-slate-700/50 bg-slate-800/40 rounded-xl w-fit shadow-sm">
                     <Clock className="w-4 h-4 text-indigo-400" />
@@ -997,8 +1217,9 @@ export default function ExamDashboard() {
                         {/* Primary Action */}
                         {!(examType === 'Mid' && midType === 'Mid 1' && targetUnit >= 3) ? (
                             <button
-                                onClick={() => {
-                                    setUnitProgress(Math.min(100, unitProgress + 25));
+                                onClick={async () => {
+                                    await logStudyEvent({ event_type: 'unit_completed', subject_id: subjectId, unit_id: targetUnit.toString() });
+                                    setUnitProgress(100);
                                     generateStudyPlan(true);
                                 }}
                                 className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(99,102,241,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
@@ -1008,7 +1229,10 @@ export default function ExamDashboard() {
                             </button>
                         ): (
                             <button
-                                onClick={() => setUnitProgress(100)}
+                                onClick={async () => {
+                                    await logStudyEvent({ event_type: 'unit_completed', subject_id: subjectId, unit_id: targetUnit.toString() });
+                                    setUnitProgress(100);
+                                }}
                                 className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
                             >
                                 <CheckCircle className="w-5 h-5" />
@@ -1054,15 +1278,7 @@ export default function ExamDashboard() {
                         </div>
                       </div>
                       
-                      {/* Handwritten Toggle Checkbox for PDF exports */}
-                      <label className="flex items-center justify-center cursor-pointer gap-2 mt-2 pt-4 border-t border-slate-800/50 w-full opacity-60 hover:opacity-100 transition-opacity">
-                        <div className="relative transform scale-75 origin-center">
-                          <input type="checkbox" className="sr-only" checked={isHandwritten} onChange={() => setIsHandwritten(!isHandwritten)} />
-                          <div className={clsx("block w-14 h-8 rounded-full transition-colors", isHandwritten ? "bg-indigo-500" : "bg-slate-700")}></div>
-                          <div className={clsx("dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform", isHandwritten ? "transform translate-x-6" : "")}></div>
-                        </div>
-                        <span className="text-slate-400 font-bold text-xs tracking-wide">📝 Handwritten PDF Styling</span>
-                      </label>
+
                     </div>
                   </div>
                 )}
@@ -1092,7 +1308,7 @@ export default function ExamDashboard() {
 
             {/* Sticky Chat Input Bar (ChatGPT Style) */}
             <div className="bg-slate-900/80 backdrop-blur-xl border-t border-slate-800 p-6 print:hidden">
-              <div className="max-w-4xl 2xl:max-w-5xl mx-auto">
+              <div className="max-w-[800px] mx-auto">
                 <form onSubmit={handleSendMessage} className="relative flex items-center shadow-2xl">
                   <input
                     type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)}
@@ -1171,7 +1387,25 @@ export default function ExamDashboard() {
 
       {/* Mock Exam Overlay */}
       {showExam && (
-        <MockExamModal questions={examQuestions} onClose={() => setShowExam(false)} />
+        <MockExamModal 
+          questions={examQuestions} 
+          onClose={() => setShowExam(false)} 
+          onComplete={(score, total) => {
+            logStudyEvent({ 
+              event_type: 'mock_test', 
+              subject_id: subjectId, 
+              unit_id: targetUnit.toString(), 
+              score: Math.round((score / total) * 100) 
+            }).then(() => refreshUnitProgress(subjectId, targetUnit));
+          }}
+        />
+      )}
+
+      {/* Floating Global Study Tracker Widget */}
+      {hasGenerated && (
+        <div className="print:hidden">
+
+        </div>
       )}
     </div>
   )

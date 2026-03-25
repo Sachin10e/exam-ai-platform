@@ -1,14 +1,18 @@
 'use server'
 
-import { createClient } from '@supabase/supabase-js'
+import { createClient as createClientJs } from '@supabase/supabase-js'
 import pdfParse from 'pdf-parse'
 import mammoth from 'mammoth'
 import Tesseract from 'tesseract.js'
 import crypto from 'crypto'
 import { generateEmbedding } from '../../lib/embeddings'
 import { encode, decode } from 'gpt-tokenizer'
+import { GoogleGenerativeAI } from '@google/generative-ai'
+import { generateTopicRelationships } from '../../lib/analytics/topicRelationships'
+import { createClient } from '@/utils/supabase/server'
 
-const serviceSupabase = createClient(
+// We maintain serviceSupabase specifically for bypassing RLS across extremely heavy global vector searches if necessary
+const serviceSupabase = createClientJs(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
@@ -23,6 +27,11 @@ export async function uploadPdfAction(formData: FormData) {
         if (!file || !subjectId) {
             return { error: 'File and Subject ID are required' }
         }
+
+        const supabase = await createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        
+        const isGuest = !user;
 
         const arrayBuffer = await file.arrayBuffer()
         const buffer = Buffer.from(arrayBuffer)
@@ -82,6 +91,25 @@ export async function uploadPdfAction(formData: FormData) {
             .replace(/\n{3,}/g, '\n\n') // Normalize newlines
             .trim()
 
+        if (isGuest) {
+            console.log(`[GUEST MODE] Returning raw text payload for ${file.name}. Bypassing database.`);
+            return {
+                success: true,
+                subjectId: 'guest-local',
+                isGuest: true,
+                text: cleanText,
+                message: `Extracted text from ${file.name} for local guest session.`
+            }
+        }
+
+        let finalSubjectId = subjectId;
+        // Handle Edge Case: User uploaded as guest initially, got 'guest-local', then successfully logged in.
+        // The UUID insert will fail for "guest-local", so we must promote and auto-containerize them into a real subject.
+        if (!isGuest && subjectId === 'guest-local') {
+             const { data: newSubj } = await supabase.from('subjects').insert([{ name: `Promoted Guest Plan (${file.name})`, user_id: user.id }]).select().single();
+             if (newSubj) finalSubjectId = newSubj.id;
+        }
+
         // 2. Hash computation for Deduplication
         const fileHash = crypto.createHash('sha256').update(cleanText).digest('hex')
         let hasFileHashCol = true;
@@ -93,10 +121,11 @@ export async function uploadPdfAction(formData: FormData) {
         }
 
         if (hasFileHashCol) {
-            const { data: searchDoc } = await serviceSupabase
+            const { data: searchDoc } = await supabase
                 .from('documents')
                 .select('id, subject_id')
                 .eq('file_hash', fileHash)
+                .eq('user_id', user.id)
                 .limit(1)
                 .maybeSingle()
 
@@ -112,7 +141,8 @@ export async function uploadPdfAction(formData: FormData) {
 
         // 3. Insert new Document Record
         const insertPayload: Record<string, unknown> = {
-            subject_id: subjectId,
+            user_id: user.id,
+            subject_id: finalSubjectId,
             filename: file.name,
             full_text: cleanText
         }
@@ -120,15 +150,28 @@ export async function uploadPdfAction(formData: FormData) {
             insertPayload.file_hash = fileHash
         }
 
-        const { data: docData, error: docError } = await serviceSupabase
+        let res = await supabase
             .from('documents')
             .insert([insertPayload])
             .select()
             .single()
 
+        // Fallback if file_hash causes global uniqueness violation
+        if (res.error && res.error.code === '23505' && hasFileHashCol) {
+            delete (insertPayload as any).file_hash;
+            res = await supabase
+                .from('documents')
+                .insert([insertPayload])
+                .select()
+                .single()
+        }
+
+        const docData = res.data;
+        const docError = res.error;
+
         if (docError) {
             console.error('Document insert error:', docError)
-            return { error: 'Failed to save document record' }
+            return { error: `Failed to save document record: ${docError.message}` }
         }
 
         // 3. Chunk and Embed
@@ -148,7 +191,7 @@ export async function uploadPdfAction(formData: FormData) {
         }
         let successCount = 0
 
-        for (const chunk of rawChunks) { // Iterate over rawChunks
+        for (const chunk of rawChunks) {
             if (!chunk.trim()) continue;
 
             let embedding;
@@ -160,10 +203,11 @@ export async function uploadPdfAction(formData: FormData) {
                 throw new Error(`Failed to generate Gemini embedding: ${errMsg}`)
             }
 
-            const { error: chunkError } = await serviceSupabase
+            const { error: chunkError } = await supabase
                 .from('chunks')
                 .insert([{
-                    subject_id: subjectId,
+                    user_id: user.id,
+                    subject_id: finalSubjectId,
                     document_id: docData.id,
                     content: chunk,
                     embedding: embedding
@@ -174,8 +218,66 @@ export async function uploadPdfAction(formData: FormData) {
             }
         }
 
+        // KNOWLEDGE GRAPH SYNTHESIS: Topic Extraction Node (Moved outside loop for massive performance gain)
+        try {
+            const extractText = cleanText.substring(0, 5000);
+            const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+            const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+            const prompt = `
+Extract only the highly concrete academic or syllabus topics from the following text fragment.
+Return ONLY a valid JSON array. Do not include markdown formatting or backticks.
+Format strictly:
+[
+  {
+    "topic": "Name of the topic",
+    "description": "Brief description of the concept",
+    "importance_score": 1 to 10
+  }
+]
+Text: ${extractText}
+            `;
+            
+            const result = await model.generateContent(prompt);
+            let jsonStr = result.response.text().trim();
+            if (jsonStr.startsWith('\`\`\`')) {
+                jsonStr = jsonStr.replace(/^\`\`\`json\n?/, '').replace(/\n?\`\`\`$/, '');
+            }
+            const extractedTopics = JSON.parse(jsonStr);
+
+            for (const t of extractedTopics) {
+                if (!t.topic) continue;
+                const { data: existing } = await supabase
+                    .from('topics')
+                    .select('id')
+                    .eq('user_id', user.id)
+                    .eq('subject_id', finalSubjectId)
+                    .ilike('name', t.topic)
+                    .limit(1)
+                    .maybeSingle();
+
+                if (!existing) {
+                    await supabase.from('topics').insert({
+                        user_id: user.id,
+                        subject_id: finalSubjectId,
+                        name: t.topic,
+                        description: t.description,
+                        importance: t.importance_score || 1
+                    });
+                }
+            }
+        } catch (kgErr) {
+            console.warn('[Knowledge Graph] Topic extraction failed for global text:', String(kgErr).substring(0, 100));
+        }
+
+        // KNOWLEDGE GRAPH SYNTHESIS: Topic Linkage Edge Network Strategy
+        // Deployed passively off the main UI execution thread to not freeze user input
+        generateTopicRelationships(finalSubjectId).then(res => {
+            console.log(`[Knowledge Graph] Edge Mapping Status: ${res.success ? res.message : res.error}`);
+        }).catch(err => console.error('[Knowledge Graph] Relation dispatch fault:', err));
+
         return {
             success: true,
+            subjectId: finalSubjectId,
             message: `Processed ${successCount} chunks from ${file.name}`
         }
 

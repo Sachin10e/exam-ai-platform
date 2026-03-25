@@ -4,14 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import mermaid from 'mermaid';
 import { v4 as uuid } from 'uuid';
 
-mermaid.initialize({
-    startOnLoad: false,
-    theme: 'dark',
-    securityLevel: 'strict',
-    fontFamily: 'Inter',
-    logLevel: 5,
-    suppressErrorRendering: true,
-});
+// Initialization migrated to useEffect to support dynamic theme polling
 
 interface MermaidProps {
     chart: string;
@@ -24,6 +17,16 @@ export default function MermaidDiagram({ chart }: MermaidProps) {
     const [chartId] = useState(() => `mermaid-${uuid().substring(0, 8)}`);
 
     useEffect(() => {
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: document.documentElement.classList.contains('light-mode') ? 'default' : 'dark',
+            themeCSS: '.nodeLabel { font-weight: 800 !important; font-size: 14px !important; } .edgeLabel { font-weight: bold !important; }',
+            securityLevel: 'strict',
+            fontFamily: 'Inter',
+            logLevel: 5,
+            suppressErrorRendering: true,
+        });
+
         let isMounted = true;
         const renderChart = async () => {
             try {

@@ -15,17 +15,24 @@ export default function Dashboard() {
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   // Check session
   async function fetchSubjects(token: string) {
-    const res = await fetch('/api/subjects', {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-
-    const data = await res.json()
-    setSubjects(data.data || [])
+    try {
+      const res = await fetch('/api/subjects', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      if (!res.ok) throw new Error("Request failed")
+      
+      const data = await res.json()
+      setSubjects(data.data || [])
+    } catch (err) {
+      console.error(err)
+      setError("Something went wrong. Retry.")
+    }
   }
 
   useEffect(() => {
@@ -53,14 +60,20 @@ export default function Dashboard() {
 
     if (!session) return
 
-    await fetch('/api/subjects', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ name }),
-    })
+    try {
+      const res = await fetch('/api/subjects', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ name }),
+      })
+      if (!res.ok) throw new Error("Request failed")
+    } catch (err) {
+      console.error(err)
+      setError("Something went wrong. Retry.")
+    }
 
     setName('')
     fetchSubjects(session.access_token)
@@ -73,14 +86,20 @@ export default function Dashboard() {
 
     if (!session) return
 
-    await fetch('/api/subjects', {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ id }),
-    })
+    try {
+      const res = await fetch('/api/subjects', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ id }),
+      })
+      if (!res.ok) throw new Error("Request failed")
+    } catch (err) {
+      console.error(err)
+      setError("Something went wrong. Retry.")
+    }
 
     fetchSubjects(session.access_token)
   }
@@ -91,6 +110,12 @@ export default function Dashboard() {
   }
 
   if (loading) return <div className="p-8">Loading...</div>
+  if (error) return (
+    <div className="p-8 max-w-2xl mx-auto flex flex-col items-start gap-4">
+      <p className="text-red-500 font-bold">{error}</p>
+      <button onClick={() => window.location.reload()} className="bg-blue-500 text-white px-4 py-2 rounded">Retry</button>
+    </div>
+  )
 
   return (
     <div className="p-8 max-w-2xl mx-auto">

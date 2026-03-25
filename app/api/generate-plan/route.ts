@@ -13,24 +13,30 @@ const serviceSupabase = createClient(
 
 export async function POST(req: Request) {
     try {
-        const { subjectId, urgency, examType, midType, answerLength, targetGrade = 'Top', explanationStyle = 'Academic', targetUnit = 1 } = await req.json()
+        const { subjectId, urgency, examType, midType, answerLength, targetGrade = 'Top', explanationStyle = 'Academic', targetUnit = 1, guestContextText } = await req.json()
 
-        if (!subjectId) {
-            return NextResponse.json({ error: 'Subject ID is required' }, { status: 400 })
+        if (!subjectId && !guestContextText) {
+            return NextResponse.json({ error: 'Subject ID or local context is required' }, { status: 400 })
         }
 
-        const query = `Unit ${targetUnit} important topics and expected questions for ${examType} exam`
-        const queryEmbedding = await generateEmbedding(query)
-        const { data: chunks } = await serviceSupabase.rpc('match_chunks', {
-            query_embedding: queryEmbedding,
-            match_threshold: 0.15,
-            match_count: 10,
-            filter_subject_id: subjectId
-        })
-
         let contextText = ''
-        if (chunks && chunks.length > 0) {
-            contextText = chunks.map((c: { content: string }) => c.content).join('\n\n')
+        
+        if (guestContextText) {
+            // GUEST MODE BYPASS: Do not query RAG. Feed raw string buffer.
+            contextText = guestContextText;
+        } else {
+            const query = `Unit ${targetUnit} important topics and expected questions for ${examType} exam`
+            const queryEmbedding = await generateEmbedding(query)
+            const { data: chunks } = await serviceSupabase.rpc('match_chunks', {
+                query_embedding: queryEmbedding,
+                match_threshold: 0.15,
+                match_count: 10,
+                filter_subject_id: subjectId
+            })
+
+            if (chunks && chunks.length > 0) {
+                contextText = chunks.map((c: { content: string }) => c.content).join('\n\n')
+            }
         }
 
         // Prompt Engineering Parameters
@@ -110,14 +116,14 @@ B --> C["Step 2"]
 C --> D["End"]
 \`\`\`
    - You MUST use rich formatting to explain concepts clearly: Use ASCII flowcharts, code blocks, step-by-step logic, bold keywords, and bulleted lists.
-4. SEPARATE RESOURCES AND TIPS on new lines (FOR LONG QUESTIONS ONLY):
-   - Every major Answer MUST end with a short "💡 Pro-Tip:" or "🧠 Mnemonic:" on its own distinct line.
+4. SEPARATE RESOURCES AND TIPS on new lines (FOR EVERY QUESTION):
+   - Every single Answer MUST end with a short "💡 Pro-Tip:" or "🧠 Mnemonic:" on its own distinct line.
    - On a NEW LINE, append a Web Reference Link: \`[🌍 Search Web for {Insert Topic Formatted as Plain Text}](https://www.google.com/search?q={INSERT_URL_ENCODED_TOPIC_HERE})\`
-   - On a NEW LINE, append a YouTube Link: \`[📺 Watch YouTube Tutorial](https://www.youtube.com/results?search_query={INSERT_URL_ENCODED_TOPIC_HERE})\`
-            - CRITICAL: You MUST replace \`{INSERT_URL_ENCODED_TOPIC_HERE}\` with actual URL - encoded strings(e.g. \`Finite+Automata+Central+Concepts\`).DO NOT output the literal string\`{INSERT_URL_ENCODED_TOPIC_HERE}\`.
-   - DO NOT append "Explain like I'm 5" to the queries.Keep them perfectly academic and exact.
+   - On a NEW LINE, append a YouTube Link: \`[📺 Watch YouTube Tutorial for {Insert Topic Formatted as Plain text}](https://www.youtube.com/results?search_query={INSERT_URL_ENCODED_TOPIC_HERE})\`
+   - CRITICAL: You MUST replace \`{INSERT_URL_ENCODED_TOPIC_HERE}\` with actual URL-encoded strings (e.g., \`Finite+Automata+Central+Concepts\`). DO NOT output the literal string \`{INSERT_URL_ENCODED_TOPIC_HERE}\`.
+   - You MUST include these 3 lines at the end of EVERY answer. This is an absolute requirement.
 5. TYPOGRAPHY RESTRICTIONS(STRICT):
-        - CRITICAL QUESTION SIZING: For EVERY SINGLE QUESTION across ALL 3 Sections, you MUST start the line with exactly '#### '(Markdown Header 4) to ensure uniform font size.Examples: '#### Question 1: ', '#### Q1: ', '#### MCQ 1: '.
+   - CRITICAL QUESTION SIZING: For EVERY SINGLE QUESTION across ALL 3 Sections, you MUST start the line with exactly '#### ' (Markdown Header 4). Examples: '#### Question 1: ', '#### Q1: ', '#### MCQ 1: '.
    - CRITICAL ANSWER SIZING(SECTION 2): You MUST NOT use ANY Markdown headers('#', '##', '###', '####') for the answers in Section 2. You MUST NOT use ANY asterisks('**').Prefix the answer text strictly with 'A: ' rather than 'Answer:'.It MUST be exactly: 'A: [Plain normal weight text]'.
    - MULTIPLE CHOICE FORMAT: Place the ✅ tick mark INLINE next to the correct option string.DO NOT make a separate "Correct Answer" line.
 

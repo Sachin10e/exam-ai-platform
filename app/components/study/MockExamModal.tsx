@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CheckCircle, XCircle, ChevronRight, Award } from 'lucide-react';
+import { X, CheckCircle, XCircle, ChevronLeft, ChevronRight, Award } from 'lucide-react';
 import clsx from 'clsx';
 
 export interface ExamQuestion {
@@ -15,11 +15,12 @@ export interface ExamQuestion {
 interface MockExamModalProps {
     questions: ExamQuestion[];
     onClose: () => void;
+    onComplete?: (score: number, total: number) => void;
 }
 
-export default function MockExamModal({ questions, onClose }: MockExamModalProps) {
+export default function MockExamModal({ questions, onClose, onComplete }: MockExamModalProps) {
     const [currentIndex, setCurrentIndex] = useState(0);
-    const [selectedOption, setSelectedOption] = useState<number | null>(null);
+    const [answers, setAnswers] = useState<Record<number, number>>({});
     const [score, setScore] = useState(0);
     const [isFinished, setIsFinished] = useState(false);
 
@@ -29,23 +30,30 @@ export default function MockExamModal({ questions, onClose }: MockExamModalProps
     }
 
     const currentQ = questions[currentIndex];
+    const selectedOption = answers[currentIndex] ?? null;
     const isAnswered = selectedOption !== null;
     const isCorrect = selectedOption === currentQ.correctAnswerIndex;
 
     const handleSelect = (index: number) => {
         if (isAnswered) return; // Prevent changing answer
-        setSelectedOption(index);
+        setAnswers(prev => ({ ...prev, [currentIndex]: index }));
         if (index === currentQ.correctAnswerIndex) {
             setScore(prev => prev + 1);
         }
     };
 
+    const handlePrev = () => {
+        if (currentIndex > 0) {
+            setCurrentIndex(prev => prev - 1);
+        }
+    };
+
     const handleNext = () => {
         if (currentIndex < questions.length - 1) {
-            setSelectedOption(null);
             setCurrentIndex(prev => prev + 1);
         } else {
             setIsFinished(true);
+            if (onComplete) onComplete(score, questions.length);
         }
     };
 
@@ -57,20 +65,34 @@ export default function MockExamModal({ questions, onClose }: MockExamModalProps
                 onClick={onClose}
             />
 
-            {/* Animated Modal Container */}
-            <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="relative w-full max-w-3xl bg-slate-900/90 border border-slate-700/50 rounded-3xl p-6 md:p-10 shadow-[0_0_50px_rgba(99,102,241,0.15)] flex flex-col min-h-[500px]"
-                onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
-            >
-                <button
-                    onClick={onClose}
-                    className="absolute top-6 right-6 p-2 rounded-full hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors z-10"
+            {/* Layout Wrapper */}
+            <div className="flex items-center justify-center gap-4 md:gap-8 w-full max-w-5xl z-10">
+                
+                {/* Previous Button */}
+                {!isFinished && (
+                    <button
+                        onClick={handlePrev}
+                        disabled={currentIndex === 0}
+                        className="p-3 md:p-5 bg-slate-800/50 hover:bg-indigo-500/20 text-slate-300 hover:text-indigo-400 rounded-full shadow-lg backdrop-blur-md disabled:opacity-20 disabled:hover:bg-slate-800/50 transition-all z-10 shrink-0 border border-slate-700/50 hover:border-indigo-500/30 active:scale-95"
+                    >
+                        <ChevronLeft className="w-6 h-6 md:w-8 md:h-8" />
+                    </button>
+                )}
+
+                {/* Animated Modal Container */}
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                    className="relative w-full max-w-3xl bg-slate-900/95 border border-slate-700/50 rounded-3xl p-6 md:p-10 shadow-[0_0_50px_rgba(99,102,241,0.15)] flex flex-col min-h-[500px] max-h-[90vh] overflow-y-auto"
+                    onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
                 >
-                    <X className="w-6 h-6" />
-                </button>
+                    <button
+                        onClick={onClose}
+                        className="absolute top-4 right-4 p-3 bg-slate-800/50 hover:bg-rose-500/20 text-slate-300 hover:text-rose-400 rounded-full transition-all border border-slate-700/50 hover:border-rose-500/30 shadow-lg z-50 group"
+                    >
+                        <X className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
+                    </button>
 
                 {isFinished ? (
                     /* Finished Screen */
@@ -81,7 +103,7 @@ export default function MockExamModal({ questions, onClose }: MockExamModalProps
                         <div className="w-24 h-24 bg-indigo-500/20 rounded-full flex items-center justify-center mb-6">
                             <Award className="w-12 h-12 text-indigo-400" />
                         </div>
-                        <h2 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-white to-slate-400 mb-4 tracking-tight">
+                        <h2 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-slate-100 to-slate-400 mb-4 tracking-tight">
                             Exam Complete!
                         </h2>
                         <div className="text-5xl font-black text-indigo-400 mb-6 drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]">
@@ -145,7 +167,7 @@ export default function MockExamModal({ questions, onClose }: MockExamModalProps
                                             } else if (isSelected && !isTrueAnswer) {
                                                 buttonStyle = "bg-rose-500/10 border-rose-500/50 text-rose-300 ring-1 ring-rose-500/50 opacity-80";
                                             } else {
-                                                buttonStyle = "bg-slate-800/20 border-slate-800 text-slate-600 opacity-50";
+                                                buttonStyle = "bg-slate-800/10 border-slate-700/70 text-slate-500 cursor-default";
                                             }
                                         }
 
@@ -193,26 +215,21 @@ export default function MockExamModal({ questions, onClose }: MockExamModalProps
                             </motion.div>
                         </AnimatePresence>
 
-                        {/* Sticky Next Button */}
-                        <div className="mt-8 pt-4 flex justify-end min-h-[60px]">
-                            <AnimatePresence>
-                                {isAnswered && (
-                                    <motion.button
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        onClick={handleNext}
-                                        className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg transition-transform hover:-translate-y-0.5"
-                                    >
-                                        {currentIndex < questions.length - 1 ? "Next Question" : "Finish Exam"}
-                                        <ChevronRight className="w-5 h-5" />
-                                    </motion.button>
-                                )}
-                            </AnimatePresence>
-                        </div>
-
                     </div>
                 )}
-            </motion.div>
+                </motion.div>
+
+                {/* Next Button */}
+                {!isFinished && (
+                    <button
+                        onClick={handleNext}
+                        disabled={!isAnswered && currentIndex !== questions.length - 1} // Can't go next without answering current question unless doing early finish
+                        className="p-3 md:p-5 bg-slate-800/50 hover:bg-indigo-500/20 text-slate-300 hover:text-indigo-400 rounded-full shadow-lg backdrop-blur-md disabled:opacity-20 disabled:hover:bg-slate-800/50 transition-all z-10 shrink-0 border border-slate-700/50 hover:border-indigo-500/30 active:scale-95"
+                    >
+                        {currentIndex < questions.length - 1 ? <ChevronRight className="w-6 h-6 md:w-8 md:h-8" /> : <Award className="w-6 h-6 md:w-8 md:h-8 text-indigo-400" />}
+                    </button>
+                )}
+            </div>
         </div>
     );
 }

@@ -26,7 +26,7 @@ export default function ExamCountdown() {
 
                 <div>
                     <div className="flex items-baseline gap-2">
-                        <span className="text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 tracking-tighter">
+                        <span className="text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-slate-100 to-slate-400 tracking-tighter">
                             {daysRemaining}
                         </span>
                         <span className="text-lg font-bold text-slate-400">days left</span>

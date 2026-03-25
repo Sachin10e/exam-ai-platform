@@ -2,12 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   experimental: {
-    // Explicitly set the turbopack root to the current project directory 
-    // to prevent it from finding /Users/sachin_e/package-lock.json
-    // @ts-expect-error Disable turbopack typing rules
-    turbopack: {
-      root: process.cwd()
-    }
+    // Dramatically reduces compilation time and memory footprint for barrel-exports
+    optimizePackageImports: ['lucide-react', 'recharts', 'framer-motion']
   }
 };
 

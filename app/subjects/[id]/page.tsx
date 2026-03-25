@@ -20,16 +20,23 @@ export default function SubjectDetail({ params }: { params: { id: string } }) {
   const [notes, setNotes] = useState<Note[]>([])
   const [content, setContent] = useState('')
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   async function fetchNotes(token: string) {
-    const res = await fetch(`/api/notes?subject_id=${subjectId}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
+    try {
+      const res = await fetch(`/api/notes?subject_id=${subjectId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      if (!res.ok) throw new Error("Request failed")
 
-    const data = await res.json()
-    setNotes(data.data || [])
+      const data = await res.json()
+      setNotes(data.data || [])
+    } catch (err) {
+      console.error(err)
+      setError("Something went wrong. Retry.")
+    }
   }
 
   useEffect(() => {
@@ -58,17 +65,23 @@ export default function SubjectDetail({ params }: { params: { id: string } }) {
 
     if (!session) return
 
-    await fetch('/api/notes', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({
-        subject_id: subjectId,
-        content,
-      }),
-    })
+    try {
+      const res = await fetch('/api/notes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          subject_id: subjectId,
+          content,
+        }),
+      })
+      if (!res.ok) throw new Error("Request failed")
+    } catch (err) {
+      console.error(err)
+      setError("Something went wrong. Retry.")
+    }
 
     setContent('')
     fetchNotes(session.access_token)
@@ -81,19 +94,31 @@ export default function SubjectDetail({ params }: { params: { id: string } }) {
 
     if (!session) return
 
-    await fetch('/api/notes', {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
+    try {
+      const res = await fetch('/api/notes', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
       },
       body: JSON.stringify({ id: noteId }),
-    })
+      })
+      if (!res.ok) throw new Error("Request failed")
+    } catch (err) {
+      console.error(err)
+      setError("Something went wrong. Retry.")
+    }
 
     fetchNotes(session.access_token)
   }
 
   if (loading) return <div className="p-8">Loading...</div>
+  if (error) return (
+    <div className="p-8 max-w-2xl mx-auto flex flex-col items-start gap-4">
+      <p className="text-red-500 font-bold">{error}</p>
+      <button onClick={() => window.location.reload()} className="bg-blue-500 text-white px-4 py-2 rounded">Retry</button>
+    </div>
+  )
 
   return (
     <div className="p-8 max-w-2xl mx-auto">

@@ -1,31 +1,18 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-function getSupabase(token: string) {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    }
-  )
-}
+import { createClient } from '@/utils/supabase/server'
 
 // GET notes
 export async function GET(req: Request) {
-  const token = req.headers.get('authorization')?.replace('Bearer ', '')
   const { searchParams } = new URL(req.url)
   const subject_id = searchParams.get('subject_id')
 
-  if (!token || !subject_id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!subject_id) {
+    return NextResponse.json({ error: 'Missing subject' }, { status: 400 })
   }
 
-  const supabase = getSupabase(token)
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data, error } = await supabase
     .from('notes')
@@ -41,15 +28,8 @@ export async function GET(req: Request) {
 }
 
 // CREATE note
-// CREATE note
 export async function POST(req: Request) {
-  const token = req.headers.get('authorization')?.replace('Bearer ', '')
-
-  if (!token) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const supabase = getSupabase(token)
+  const supabase = await createClient()
 
   const {
     data: { user },
@@ -79,13 +59,12 @@ export async function POST(req: Request) {
 }
 // DELETE note
 export async function DELETE(req: Request) {
-  const token = req.headers.get('authorization')?.replace('Bearer ', '')
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  if (!token) {
+  if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-
-  const supabase = getSupabase(token)
 
   const { id } = await req.json()
 
@@ -93,6 +72,7 @@ export async function DELETE(req: Request) {
     .from('notes')
     .delete()
     .eq('id', id)
+    .eq('user_id', user.id)
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })

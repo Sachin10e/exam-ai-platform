@@ -5,10 +5,11 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export async function POST(req: NextRequest) {
     try {
-        const { unitText } = await req.json();
+        const { context, unitText } = await req.json();
+        const textToProcess = context || unitText;
 
-        if (!unitText || unitText.trim() === '') {
-            return NextResponse.json({ error: "Missing unit text." }, { status: 400 });
+        if (!textToProcess || textToProcess.trim() === '') {
+            return NextResponse.json({ error: "Missing context text." }, { status: 400 });
         }
 
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
@@ -18,15 +19,15 @@ export async function POST(req: NextRequest) {
 
         const prompt = `You are a strict data extraction tool.
 I am providing you with a chunk of raw text from a Study Guide.
-Your job is to identify every single logical "Question / Answer" pair or "Concept / Definition" pair and extract them into a JSON array of flashcards.
+Your job is to identify ONLY the top 5 to 10 most critical, high-yield "Question / Answer" or "Concept / Definition" pairs from the text.
+Do NOT extract trivial details. Focus purely on major, core concepts that are absolutely essential for an exam.
 
-Extract ANY important concept you find into a flashcard format.
 Keep the "front" (the question or concept name) short and clear.
 Keep the "back" (the answer or definition) concise (1-2 sentences).
 
 Input Text:
 """
-${unitText}
+${textToProcess}
 """
 
 Output JSON EXACTLY adhering to this schema:

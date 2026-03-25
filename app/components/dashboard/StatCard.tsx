@@ -11,6 +11,7 @@ interface StatCardProps {
     value: string | number;
     icon: LucideIcon;
     color: StatCardColor;
+    isLoading?: boolean;
 }
 
 const colorMap = {
@@ -41,18 +42,25 @@ const colorMap = {
     }
 };
 
-export default function StatCard({ title, value, icon: Icon, color }: StatCardProps) {
+const StatCard = ({ title, value, icon: Icon, color, isLoading }: StatCardProps) => {
     const styles = colorMap[color] || colorMap.indigo;
 
     return (
-        <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 flex flex-col gap-4 transform transition-all duration-200 hover:-translate-y-1 hover:shadow-lg hover:shadow-indigo-500/10 hover:bg-slate-800/60 hover:border-slate-700 w-full group">
+        <div 
+            className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 flex flex-col gap-4 w-full h-full group hover:-translate-y-1 transition-all duration-200 hover:shadow-lg hover:shadow-indigo-500/10 hover:bg-slate-800/60 hover:border-slate-700 relative overflow-hidden">
             <div className={clsx("w-12 h-12 rounded-2xl flex items-center justify-center border", styles.bg, styles.border)}>
                 <Icon className={clsx("w-5 h-5", styles.icon)} />
             </div>
             <div>
-                <div className="text-3xl font-extrabold text-slate-100 tracking-tight">{value}</div>
+                {isLoading ? (
+                    <div className="h-9 w-16 bg-slate-800 rounded-lg animate-pulse mb-1"></div>
+                ) : (
+                    <div className="text-3xl font-extrabold text-slate-100 tracking-tight">{value}</div>
+                )}
                 <div className="text-slate-500 text-sm font-medium mt-1 uppercase tracking-wider">{title}</div>
             </div>
         </div>
     );
 }
+
+export default React.memo(StatCard);
