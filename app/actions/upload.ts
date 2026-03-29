@@ -2,7 +2,6 @@
 
 import { createClient as createClientJs } from '@supabase/supabase-js'
 import mammoth from 'mammoth'
-import Tesseract from 'tesseract.js'
 import crypto from 'crypto'
 import { generateEmbedding } from '../../lib/embeddings'
 import { encode, decode } from 'gpt-tokenizer'
@@ -11,18 +10,19 @@ import { generateTopicRelationships } from '../../lib/analytics/topicRelationshi
 import { createClient } from '@/utils/supabase/server'
 
 async function extractPdfText(buffer: Buffer): Promise<string> {
-    // Use pdfjs-dist which is pure JS and works on Vercel (pdf-parse uses native fs at module level)
-    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs' as any);
-    pdfjsLib.GlobalWorkerOptions = pdfjsLib.GlobalWorkerOptions || {};
+    // Use pdfjs-dist CJS (works in Vercel serverless; .mjs import can fail due to ESM resolution)
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.cjs');
     pdfjsLib.GlobalWorkerOptions.workerSrc = '';
     const uint8Array = new Uint8Array(buffer);
-    const pdfDoc = await pdfjsLib.getDocument({ data: uint8Array, useSystemFonts: true }).promise;
+    const loadingTask = pdfjsLib.getDocument({ data: uint8Array, useSystemFonts: true, disableFontFace: true });
+    const pdfDoc = await loadingTask.promise;
     const numPages = pdfDoc.numPages;
     let fullText = '';
     for (let i = 1; i <= numPages; i++) {
         const page = await pdfDoc.getPage(i);
         const textContent = await page.getTextContent();
-        const pageText = textContent.items.map((item: any) => item.str).join(' ');
+        const pageText = (textContent.items as any[]).map((item: any) => item.str || '').join(' ');
         fullText += pageText + '\n';
     }
     return fullText;
@@ -73,9 +73,21 @@ export async function uploadPdfAction(formData: FormData) {
             FullText = result.value
         }
         else if (mimeType.startsWith('image/') || fileName.match(/\.(jpg|jpeg|png)$/)) {
-            // Image OCR Parsing
-            const { data: { text } } = await Tesseract.recognize(buffer, 'eng')
-            FullText = text
+            // Image OCR via Gemini Vision API (Tesseract requires WebWorkers unavailable on Vercel)
+            try {
+                const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+                const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+                const base64Image = buffer.toString('base64');
+                const mimeTypeForGemini = mimeType || 'image/jpeg';
+                const result = await model.generateContent([
+                    { inlineData: { data: base64Image, mimeType: mimeTypeForGemini } },
+                    'Extract all readable text from this image. Return only the text content, preserving structure as much as possible.'
+                ]);
+                FullText = result.response.text();
+            } catch (imgErr) {
+                console.error('Image OCR error:', imgErr);
+                return { error: 'Failed to extract text from image. Please try a clearer image or text-based PDF.' };
+            }
         }
         else if (mimeType === 'text/plain' || fileName.endsWith('.txt') || fileName.endsWith('.md')) {
             // Plain Text

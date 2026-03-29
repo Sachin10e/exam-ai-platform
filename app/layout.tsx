@@ -33,8 +33,15 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch (err) {
+    // If auth fails on Vercel (missing env, cold start), gracefully degrade to logged-out state
+    console.error('[RootLayout] auth.getUser failed, degrading to guest:', err);
+  }
 
   return (
     <html lang="en">
