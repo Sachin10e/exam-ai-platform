@@ -102,7 +102,7 @@ const ThrottledMarkdown = React.memo(({ content }: { content: string }) => {
         li: ({ node, ...props }) => <li className="pl-2" {...props} />,
         strong: ({ node, ...props }) => <strong className="font-bold text-slate-100 print:text-black" {...props} />,
         em: ({ node, ...props }) => <em className="italic text-slate-200 print:text-black" {...props} />,
-        a: ({ node, ...props }) => <a className="text-blue-300 hover:text-blue-200 print:text-blue-700 underline underline-offset-4" {...props} />,
+        a: ({ node, ...props }) => <a className="text-blue-300 hover:text-blue-200 print:text-blue-700 underline underline-offset-4" target="_blank" rel="noopener noreferrer" {...props} />,
         blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-slate-600 pl-6 py-2 my-6 italic text-slate-200 print:text-[#1E1E1E] bg-slate-800/20 print:bg-slate-50 rounded-r-xl" {...props} />,
         hr: ({ node, ...props }) => <hr className="border-slate-800 border-t-2 my-12" {...props} />,
         table: ({ node, ...props }) => (
