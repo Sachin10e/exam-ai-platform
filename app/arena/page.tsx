@@ -1304,61 +1304,61 @@ export default function ExamDashboard() {
                 )}
                 <div ref={endOfMessagesRef} className="h-4"></div>
               </div>
-            </div>
 
-              {/* Smart Back to Top/Bottom FAB — OUTSIDE scroll container so fixed positioning works */}
-              <AnimatePresence>
-                {showBackToTop && (
-                  <motion.button
-                    initial={{ opacity: 0, scale: 0.8, y: 20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.8, y: 20 }}
-                    onClick={() => {
-                      const el = scrollContainerRef.current;
-                      if (!el) return;
-                      if (scrollDirection === 'up') {
-                        el.scrollTo({ top: 0, behavior: 'smooth' });
-                      } else {
-                        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-                      }
-                    }}
-                    className="fixed bottom-6 right-6 z-[60] p-3.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full shadow-2xl transition-colors focus:ring-4 focus:ring-indigo-500/50 flex items-center justify-center group print:hidden"
-                    title={scrollDirection === 'up' ? "Back to Top" : "Scroll to Bottom"}
-                  >
-                    {scrollDirection === 'up' ? (
-                      <ArrowUp className="w-5 h-5 group-hover:-translate-y-1 transition-transform" />
-                    ) : (
-                      <ArrowDown className="w-5 h-5 group-hover:translate-y-1 transition-transform" />
-                    )}
-                  </motion.button>
-                )}
-              </AnimatePresence>
-
-            {/* Floating Chat Bar — fixed to viewport bottom, aligned with content */}
-            <div className="fixed bottom-0 left-0 right-0 z-[55] print:hidden">
-              <div className={clsx(
-                "mx-auto pb-3 pt-2",
-                isFocusMode ? "max-w-[860px] px-6 md:px-16" : "max-w-[800px] px-4 md:px-12"
-              )}>
-                <form onSubmit={handleSendMessage} className="flex items-center gap-3 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl px-4 py-2.5 shadow-[0_-4px_30px_rgba(0,0,0,0.3)]">
-                  <input
-                    type="text"
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    placeholder="Ask about the study plan..."
-                    disabled={isChatLoading || isGenerating}
-                    className="flex-1 min-w-0 bg-transparent outline-none text-sm md:text-base text-slate-100 placeholder:text-slate-500 font-sans py-1.5"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!chatInput.trim() || isChatLoading || isGenerating}
-                    className="shrink-0 w-10 h-10 flex items-center justify-center bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 disabled:opacity-40 disabled:bg-slate-800 disabled:text-slate-600 transition-colors shadow-md"
-                  >
-                    <span className="font-black text-lg leading-none">↑</span>
-                  </button>
-                </form>
+              {/* Sticky Chat Bar — inside scroll container for proper alignment */}
+              <div className="sticky bottom-0 z-[55] print:hidden bg-gradient-to-t from-slate-950 via-slate-950/95 to-transparent pt-4">
+                <div className={clsx(
+                  "mx-auto pb-3",
+                  isFocusMode ? "max-w-[860px] px-6 md:px-16" : "max-w-[800px] px-4 md:px-12"
+                )}>
+                  <form onSubmit={handleSendMessage} className="flex items-center gap-3 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl px-4 py-2.5 shadow-[0_-4px_30px_rgba(0,0,0,0.3)]">
+                    <input
+                      type="text"
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      placeholder="Ask about the study plan..."
+                      disabled={isChatLoading || isGenerating}
+                      className="flex-1 min-w-0 bg-transparent outline-none text-sm md:text-base text-slate-100 placeholder:text-slate-500 font-sans py-1.5"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!chatInput.trim() || isChatLoading || isGenerating}
+                      className="shrink-0 w-10 h-10 flex items-center justify-center bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 disabled:opacity-40 disabled:bg-slate-800 disabled:text-slate-600 transition-colors shadow-md"
+                    >
+                      <span className="font-black text-lg leading-none">↑</span>
+                    </button>
+                  </form>
+                </div>
               </div>
             </div>
+
+            {/* Smart Back to Top/Bottom FAB — fixed to viewport */}
+            <AnimatePresence>
+              {showBackToTop && (
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.8, y: 20 }}
+                  onClick={() => {
+                    const el = scrollContainerRef.current;
+                    if (!el) return;
+                    if (scrollDirection === 'up') {
+                      el.scrollTo({ top: 0, behavior: 'smooth' });
+                    } else {
+                      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+                    }
+                  }}
+                  className="fixed bottom-6 right-6 z-[60] p-3.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full shadow-2xl transition-colors focus:ring-4 focus:ring-indigo-500/50 flex items-center justify-center group print:hidden"
+                  title={scrollDirection === 'up' ? "Back to Top" : "Scroll to Bottom"}
+                >
+                  {scrollDirection === 'up' ? (
+                    <ArrowUp className="w-5 h-5 group-hover:-translate-y-1 transition-transform" />
+                  ) : (
+                    <ArrowDown className="w-5 h-5 group-hover:translate-y-1 transition-transform" />
+                  )}
+                </motion.button>
+              )}
+            </AnimatePresence>
 
           </motion.div>
         ) : null}

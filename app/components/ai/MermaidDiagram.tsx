@@ -26,20 +26,18 @@ export default function MermaidDiagram({ chart }: MermaidProps) {
             if (s.trim().startsWith('%%') || /^\s*(graph|flowchart|sequenceDiagram|classDiagram|stateDiagram|erDiagram)/i.test(s.trim())) {
                 return s;
             }
+            // CRITICAL: Strip trailing semicolons — AI frequently adds them but Mermaid doesn't support them
+            s = s.replace(/;\s*$/, '');
+            // Strip trailing whitespace
+            s = s.trimEnd();
             // Fix curly-brace decision nodes with unquoted text containing special chars
-            // e.g. A{ "text with (parens)" } is already fine, but A{ text (parens) } needs quoting
             s = s.replace(/(\w+)\{\s*([^"{}][^{}]*?)\s*\}/g, (_m, id: string, label: string) => {
-                const trimmed = label.trim();
-                // Only quote if it contains problematic characters
-                if (/[()&<>'"\/\\?!]/.test(trimmed)) {
-                    return `${id}{"${trimmed}"}`;
-                }
-                return `${id}{"${trimmed}"}`;
+                return `${id}{"${label.trim()}"}`;
             });
-            // Fix square/round brackets with unquoted text containing parens or special chars
-            // e.g. A[Label (with parens)] → A["Label (with parens)"]
+            // Fix square brackets with unquoted text containing parens or special chars
             s = s.replace(/(\w+)\[([^\]"]*[()&][^\]"]*)\]/g, (_m, id: string, label: string) => `${id}["${label.trim()}"]`);
-            s = s.replace(/(\w+)\(([^)"]*[()&][^)"]*)\)/g, (_m, id: string, label: string) => `${id}("${label.trim()}")`);
+            // Fix round brackets with unquoted nested parens
+            s = s.replace(/(\w+)\(([^)"]*\([^)]*\)[^)"]*)\)/g, (_m, id: string, label: string) => `${id}("${label.trim()}")`);
             // Fix edge labels: -- text with special chars -->
             s = s.replace(/--\s+([^>|[\]"{}][^>|]*?)\s+-->/g, (_m, label: string) => {
                 if (/[()&<>'"?!]/.test(label)) {
