@@ -449,6 +449,12 @@ body.focus-mode-active #global-topnav {
   display: none !important;
 }
 
+/* Also hide the LayoutShell sidebar wrapper that reserves 260px width */
+body.focus-mode-active #global-sidebar-wrapper {
+  display: none !important;
+  width: 0 !important;
+}
+
 body.focus-mode-active main {
   padding-top: 1rem !important;
 }

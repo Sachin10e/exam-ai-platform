@@ -18,16 +18,38 @@ export default function MermaidDiagram({ chart }: MermaidProps) {
 
     // Sanitize common AI-generated mermaid syntax errors
     const sanitizeChart = (raw: string): string => {
-        let s = raw;
-        // Fix unquoted labels with special chars: A --> B(Label with (parens)) → A --> B["Label with (parens)"]
-        s = s.replace(/(\w+)\{("[^"]*")\}/g, '$1{$2}'); // already quoted rhombus — leave alone
-        // Fix curly-brace decision nodes with unquoted text: A{ text } → A{"text"}
-        s = s.replace(/(\w+)\{\s*([^"{}][^{}]*?)\s*\}/g, (_m, id, label) => `${id}{"${label.trim()}"}`);
-        // Fix square brackets with unquoted parens: A[Label (x)] → A["Label (x)"]
-        s = s.replace(/(\w+)\[([^\]"]*\([^\]]*\)[^\]"]*)\]/g, (_m, id, label) => `${id}["${label.trim()}"]`);
-        // Fix -- text with special chars on edges: -- text --> needs quoting if it has parens
-        s = s.replace(/--\s*([^>|[\]"{}][^>|]*?\([^)]*\)[^>|]*?)\s*-->/g, (_m, label) => `-- "${label.trim()}" -->`);
-        return s;
+        // Process line by line for more reliable fixes
+        const lines = raw.split('\n');
+        const sanitizedLines = lines.map(line => {
+            let s = line;
+            // Skip comment lines and the first line (graph/flowchart declaration)
+            if (s.trim().startsWith('%%') || /^\s*(graph|flowchart|sequenceDiagram|classDiagram|stateDiagram|erDiagram)/i.test(s.trim())) {
+                return s;
+            }
+            // Fix curly-brace decision nodes with unquoted text containing special chars
+            // e.g. A{ "text with (parens)" } is already fine, but A{ text (parens) } needs quoting
+            s = s.replace(/(\w+)\{\s*([^"{}][^{}]*?)\s*\}/g, (_m, id: string, label: string) => {
+                const trimmed = label.trim();
+                // Only quote if it contains problematic characters
+                if (/[()&<>'"\/\\?!]/.test(trimmed)) {
+                    return `${id}{"${trimmed}"}`;
+                }
+                return `${id}{"${trimmed}"}`;
+            });
+            // Fix square/round brackets with unquoted text containing parens or special chars
+            // e.g. A[Label (with parens)] → A["Label (with parens)"]
+            s = s.replace(/(\w+)\[([^\]"]*[()&][^\]"]*)\]/g, (_m, id: string, label: string) => `${id}["${label.trim()}"]`);
+            s = s.replace(/(\w+)\(([^)"]*[()&][^)"]*)\)/g, (_m, id: string, label: string) => `${id}("${label.trim()}")`);
+            // Fix edge labels: -- text with special chars -->
+            s = s.replace(/--\s+([^>|[\]"{}][^>|]*?)\s+-->/g, (_m, label: string) => {
+                if (/[()&<>'"?!]/.test(label)) {
+                    return `-- "${label.trim()}" -->`;
+                }
+                return `-- ${label.trim()} -->`;
+            });
+            return s;
+        });
+        return sanitizedLines.join('\n');
     };
 
     useEffect(() => {

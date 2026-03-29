@@ -19,7 +19,7 @@ export default function LayoutShell({ user, children }: LayoutShellProps) {
 
             {/* Sidebar: w-[260px] shrink-0, conditionally mounted (fully removed from DOM when closed) */}
             {isSidebarOpen && (
-                <div className="w-[260px] shrink-0 h-full print:hidden">
+                <div id="global-sidebar-wrapper" className="w-[260px] shrink-0 h-full print:hidden">
                     <Sidebar />
                 </div>
             )}

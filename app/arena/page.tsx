@@ -96,13 +96,19 @@ const ThrottledMarkdown = React.memo(({ content }: { content: string }) => {
         h2: ({ node, ...props }) => <h2 className="text-3xl md:text-[2rem] font-bold text-slate-100 print:text-[#1E1E1E] mt-12 mb-6" {...props} />,
         h3: ({ node, ...props }) => <h3 className="text-2xl md:text-[1.65rem] font-semibold text-slate-100 print:text-[#1E1E1E] mt-10 mb-5" {...props} />,
         h4: ({ node, ...props }) => <h4 className="text-xl md:text-[1.35rem] font-bold text-slate-100 mt-10 mb-4 tracking-tight" {...props} />,
-        p: ({ node, ...props }) => <p className="text-[1.15rem] md:text-[1.25rem] leading-[1.9] text-slate-100 print:text-[#1E1E1E] mb-8 font-normal" {...props} />,
+        p: ({ node, children, ...props }) => {
+          const text = String(children || '');
+          // Hide entire paragraph if it's a Web Search or YouTube resource link line (for print/notes)
+          if (text.startsWith('Web Search:') || text.startsWith('YouTube:')) {
+            return <p className="text-[1.15rem] md:text-[1.25rem] leading-[1.9] text-slate-100 print:text-[#1E1E1E] mb-8 font-normal print:hidden" {...props}>{children}</p>;
+          }
+          return <p className="text-[1.15rem] md:text-[1.25rem] leading-[1.9] text-slate-100 print:text-[#1E1E1E] mb-8 font-normal" {...props}>{children}</p>;
+        },
         ul: ({ node, ...props }) => <ul className="list-disc pl-6 mb-8 space-y-4 text-[1.15rem] md:text-[1.25rem] leading-[1.9] text-slate-100 print:text-[#1E1E1E] font-normal" {...props} />,
         ol: ({ node, ...props }) => <ol className="list-decimal pl-6 mb-8 space-y-4 text-[1.15rem] md:text-[1.25rem] leading-[1.9] text-slate-100 print:text-[#1E1E1E] font-normal" {...props} />,
         li: ({ node, ...props }) => <li className="pl-2" {...props} />,
         strong: ({ node, children, ...props }) => {
           const text = String(children || '');
-          // Hide Web Search and YouTube lines in print mode
           if (text === 'Web Search:' || text === 'YouTube:') {
             return <strong className="font-bold text-slate-100 print:text-black print:hidden" {...props}>{children}</strong>;
           }
@@ -790,11 +796,8 @@ export default function ExamDashboard() {
           <div className="flex items-center justify-between">
               <h2 className="text-2xl flex items-center gap-2 font-black text-slate-100 tracking-tight whitespace-nowrap">
                 <Settings2 className="w-7 h-7 text-indigo-500" />
-                Study Config
+                Customize Plan
               </h2>
-              <button onClick={() => setIsSidebarOpen(false)} className="p-2 bg-slate-800/50 rounded-lg text-slate-400 hover:text-white transition-colors">
-                  <X className="w-5 h-5" />
-              </button>
           </div>
           <button 
              onClick={() => {
@@ -1013,7 +1016,7 @@ export default function ExamDashboard() {
       </div>
 
       {/* MAIN AREA: TABS & CONTENT */}
-      <div className="flex-1 flex flex-col overflow-y-auto min-h-0 relative z-10 bg-transparent custom-scrollbar print:block">
+      <div className="flex-1 flex flex-col overflow-hidden min-h-0 relative z-10 bg-transparent custom-scrollbar print:block">
         
         {/* Floating Open Config Button: REMOVED — duplicate of header button */}
 
@@ -1074,11 +1077,10 @@ export default function ExamDashboard() {
                 <div className="h-6 w-1 bg-indigo-500 rounded-full shrink-0"></div>
                 <div className="flex flex-col">
                   <h3 className="text-base md:text-lg font-bold text-slate-100 tracking-tight leading-tight">
-                    Unit {targetUnit}
-                    {examType === 'Mid' && (
-                      <span className="text-teal-400 font-semibold ml-2 text-sm">
-                        ({midType === 'Mid 1' ? 'First Half' : 'Second Half'})
-                      </span>
+                    {examType === 'Mid' ? (
+                      <>{midType === 'Mid 1' ? 'Mid 1' : 'Mid 2'} <span className="text-teal-400 font-semibold text-sm">({midType === 'Mid 1' ? 'Unit 1–2.5' : 'Unit 2.5–5'})</span></>
+                    ) : (
+                      <>Unit {targetUnit}</>
                     )}
                   </h3>
                 </div>
@@ -1334,7 +1336,10 @@ export default function ExamDashboard() {
 
             {/* Floating Chat Bar — fixed to viewport bottom, aligned with content */}
             <div className="fixed bottom-0 left-0 right-0 z-[55] print:hidden">
-              <div className="max-w-[800px] mx-auto px-4 md:px-12 pb-3 pt-2">
+              <div className={clsx(
+                "mx-auto pb-3 pt-2",
+                isFocusMode ? "max-w-[860px] px-6 md:px-16" : "max-w-[800px] px-4 md:px-12"
+              )}>
                 <form onSubmit={handleSendMessage} className="flex items-center gap-3 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl px-4 py-2.5 shadow-[0_-4px_30px_rgba(0,0,0,0.3)]">
                   <input
                     type="text"
