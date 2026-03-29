@@ -751,7 +751,8 @@ export default function ExamDashboard() {
   return (
     <div className={clsx(
       "flex h-full print:h-auto print:block print:overflow-visible bg-slate-950 print:bg-[#fdfaf0] text-slate-100 print:text-[#1E1E1E] font-sans selection:bg-indigo-500/30 relative",
-      isHandwritten ? "print-handwritten" : ""
+      isHandwritten ? "print-handwritten" : "",
+      isFocusMode ? "focus-mode" : ""
     )}>
 
       {/* Distraction-Free Hardware-Accelerated Ambient Background */}
@@ -773,7 +774,7 @@ export default function ExamDashboard() {
       {/* LEFT SIDEBAR: CONFIGURATION */}
       <div className={clsx(
         "bg-slate-900/40 backdrop-blur-3xl border-r border-slate-700/30 flex flex-col z-50 md:z-10 shadow-2xl fixed md:sticky top-0 inset-y-0 left-0 h-[100dvh] md:h-[calc(100vh-64px)] transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] print:hidden",
-        isSidebarOpen ? "w-80 max-w-[85vw] p-4 md:p-6 opacity-100 translate-x-0" : "w-0 p-0 overflow-hidden border-none opacity-0 invisible -translate-x-full"
+        isSidebarOpen && !isFocusMode ? "w-80 max-w-[85vw] p-4 md:p-6 opacity-100 translate-x-0" : "w-0 p-0 overflow-hidden border-none opacity-0 invisible -translate-x-full"
       )}>
         <div className="flex flex-col gap-4 mb-6 shrink-0">
           <div className="flex items-center justify-between">
@@ -910,7 +911,7 @@ export default function ExamDashboard() {
                           {midType === option && (
                             <motion.div layoutId="midTypeTab" className="absolute inset-0 bg-teal-600 rounded-lg shadow-md -z-10" transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />
                           )}
-                          {option === 'Mid 1' ? 'Mid 1 (1-2.5)' : 'Mid 2 (2.5-5)'}
+                          {option === 'Mid 1' ? 'Mid 1 (First Half)' : 'Mid 2 (Second Half)'}
                         </button>
                       ))}
                     </motion.div>
@@ -1004,16 +1005,7 @@ export default function ExamDashboard() {
       {/* MAIN AREA: TABS & CONTENT */}
       <div className="flex-1 flex flex-col overflow-y-auto min-h-0 relative z-10 bg-transparent custom-scrollbar print:block">
         
-        {/* Floating Open Config Button */}
-        {!isSidebarOpen && (
-           <button 
-             onClick={() => setIsSidebarOpen(true)}
-             className="absolute top-4 left-4 md:left-4 z-50 p-3 bg-slate-900/80 backdrop-blur border border-slate-700/50 rounded-xl shadow-xl hover:bg-slate-800 text-slate-300 transition-all print:hidden group"
-             title="Open Study Configuration"
-           >
-             <Settings2 className="w-5 h-5 group-hover:rotate-45 transition-transform duration-300" />
-           </button>
-        )}
+        {/* Floating Open Config Button: REMOVED — duplicate of header button */}
 
         {/* Loading Overlay */}
         <AnimatePresence>
@@ -1065,9 +1057,9 @@ export default function ExamDashboard() {
                 <button
                   onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                   className="p-2 bg-slate-800/80 hover:bg-slate-700 rounded-lg text-slate-300 border border-slate-700 transition-colors shadow-sm shrink-0"
-                  title={isSidebarOpen ? "Close Configuration Sidebar" : "Open Configuration Sidebar"}
+                  title={isSidebarOpen && !isFocusMode ? "Close Configuration Sidebar" : "Open Configuration Sidebar"}
                 >
-                  {isSidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
+                  {isSidebarOpen && !isFocusMode ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
                 </button>
                 <div className="h-6 w-1 bg-indigo-500 rounded-full shrink-0"></div>
                 <h3 className="text-lg md:text-xl font-bold text-slate-100 tracking-tight shrink-0">Unit {targetUnit}</h3>
@@ -1097,7 +1089,12 @@ export default function ExamDashboard() {
                 </button>
 
                 <button
-                  onClick={() => setIsFocusMode(!isFocusMode)}
+                  onClick={() => {
+                    const next = !isFocusMode;
+                    setIsFocusMode(next);
+                    // Focus mode → close sidebar for true full-screen
+                    if (next) setIsSidebarOpen(false);
+                  }}
                   className={clsx(
                     "flex items-center gap-2 px-3 py-1.5 font-bold rounded-xl border transition-all shadow-sm text-xs group flex-shrink-0",
                     isFocusMode ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" : "bg-slate-800/80 hover:bg-slate-700 text-slate-300 border-slate-700"
@@ -1121,19 +1118,14 @@ export default function ExamDashboard() {
               </div>
             </div>
 
-            {/* Chat/Markdown Feed */}
+            {/* Chat/Markdown Feed — bottom padding accounts for floating chat bar */}
             <div
-              className="flex-1 overflow-y-auto print:overflow-visible print:block print:h-auto px-6 pt-6 pb-12 md:px-12 print:px-0 print:py-0 scroll-smooth custom-scrollbar relative"
+              className="flex-1 overflow-y-auto print:overflow-visible print:block print:h-auto px-4 md:px-12 pt-6 pb-36 print:px-0 print:py-0 scroll-smooth custom-scrollbar relative"
               ref={scrollContainerRef}
               onScroll={handleScroll}
             >
               <div className="max-w-[800px] mx-auto pb-40 print:max-w-none print:w-full print:mx-0 print:pb-0 print:block flex flex-col gap-10 print:gap-0">
-                {messages.length > 0 && (
-                  <div className="flex items-center gap-2 text-slate-400 font-medium text-sm px-4 py-2 border border-slate-700/50 bg-slate-800/40 rounded-xl w-fit shadow-sm">
-                    <Clock className="w-4 h-4 text-indigo-400" />
-                    Estimated Study Time: {calculateReadingTime()} minutes
-                  </div>
-                )}
+{/* Estimated Study Time: REMOVED per user request */}
                 <table className="w-full border-collapse !border-none !bg-transparent print:table block">
                   <thead className="table-header-group !border-none !bg-transparent hidden print:table-header-group">
                     <tr>
@@ -1289,39 +1281,47 @@ export default function ExamDashboard() {
                 <div ref={endOfMessagesRef} className="h-4"></div>
               </div>
 
-              {/* Smart Back to Top/Bottom FAB */}
+              {/* Smart Back to Top/Bottom FAB — shows on scroll, hides when idle */}
               <AnimatePresence>
-                {showBackToTop && isScrolling && (
+                {showBackToTop && (
                   <motion.button
                     initial={{ opacity: 0, scale: 0.8, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.8, y: 20 }}
-                    onClick={scrollDirection === 'up' ? scrollToTargetUnit : scrollToBottom}
-                    className="fixed bottom-32 right-12 z-50 p-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full shadow-2xl transition-colors focus:ring-4 focus:ring-indigo-500/50 flex items-center justify-center group"
-                    title={scrollDirection === 'up' ? "Back to Top of Current Unit" : "Scroll to Bottom"}
+                    onClick={() => {
+                      const el = scrollContainerRef.current;
+                      if (!el) return;
+                      if (scrollDirection === 'up') {
+                        el.scrollTo({ top: 0, behavior: 'smooth' });
+                      } else {
+                        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+                      }
+                    }}
+                    className="fixed bottom-32 right-4 md:right-12 z-50 p-3.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full shadow-2xl transition-colors focus:ring-4 focus:ring-indigo-500/50 flex items-center justify-center group"
+                    title={scrollDirection === 'up' ? "Back to Top" : "Scroll to Bottom"}
                   >
                     {scrollDirection === 'up' ? (
-                      <ArrowUp className="w-6 h-6 group-hover:-translate-y-1 transition-transform" />
+                      <ArrowUp className="w-5 h-5 group-hover:-translate-y-1 transition-transform" />
                     ) : (
-                      <ArrowDown className="w-6 h-6 group-hover:translate-y-1 transition-transform" />
+                      <ArrowDown className="w-5 h-5 group-hover:translate-y-1 transition-transform" />
                     )}
                   </motion.button>
                 )}
               </AnimatePresence>
             </div>
 
-            {/* Sticky Chat Input Bar (ChatGPT Style) */}
-            <div className="bg-slate-900/80 backdrop-blur-xl border-t border-slate-800 p-6 print:hidden">
-              <div className="max-w-[800px] mx-auto">
-                <form onSubmit={handleSendMessage} className="relative flex items-center shadow-2xl">
+            {/* Floating Chat Bar — fixed to viewport bottom, ChatGPT style */}
+            <div className="fixed bottom-0 left-0 right-0 z-40 print:hidden pointer-events-none">
+              <div className="pointer-events-auto max-w-[800px] mx-auto px-4 md:px-6 pb-4 pt-3">
+                <form onSubmit={handleSendMessage} className="relative flex items-center shadow-2xl bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl overflow-hidden">
                   <input
                     type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)}
-                    placeholder="Ask a question about the study plan... (e.g., Explain Finite Automata step-by-step)"
+                    placeholder="Ask about the study plan..."
                     disabled={isChatLoading || isGenerating}
-                    className="w-full pl-6 pr-16 py-4 bg-slate-950/80 border border-slate-700 rounded-2xl focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none text-lg text-slate-100 transition-all placeholder:text-slate-500 font-sans shadow-inner"
+                    className="w-full pl-5 pr-14 py-3.5 bg-transparent outline-none text-sm md:text-base text-slate-100 placeholder:text-slate-500 font-sans"
                   />
-                  <button type="submit" disabled={!chatInput.trim() || isChatLoading || isGenerating} className="absolute right-3 aspect-square flex items-center justify-center p-2 bg-indigo-600 shadow-md text-white rounded-xl hover:bg-indigo-500 disabled:opacity-40 disabled:bg-slate-800 disabled:text-slate-600 transition-colors">
-                    <span className="font-black text-xl leading-none">↑</span>
+                  <button type="submit" disabled={!chatInput.trim() || isChatLoading || isGenerating} className="absolute right-2.5 aspect-square flex items-center justify-center p-2 bg-indigo-600 shadow-md text-white rounded-xl hover:bg-indigo-500 disabled:opacity-40 disabled:bg-slate-800 disabled:text-slate-600 transition-colors">
+                    <span className="font-black text-lg leading-none">↑</span>
                   </button>
                 </form>
               </div>

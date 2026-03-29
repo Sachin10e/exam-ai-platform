@@ -19,8 +19,16 @@ export default function MermaidDiagram({ chart }: MermaidProps) {
     useEffect(() => {
         mermaid.initialize({
             startOnLoad: false,
-            theme: document.documentElement.classList.contains('light-mode') ? 'default' : 'dark',
-            themeCSS: '.nodeLabel { font-weight: 800 !important; font-size: 14px !important; } .edgeLabel { font-weight: bold !important; }',
+            theme: 'default',
+            themeVariables: {
+                primaryColor: '#e0e7ff',
+                primaryTextColor: '#1e293b',
+                primaryBorderColor: '#818cf8',
+                lineColor: '#64748b',
+                background: '#f8fafc',
+                nodeBorder: '#818cf8',
+                fontSize: '14px',
+            },
             securityLevel: 'strict',
             fontFamily: 'Inter',
             logLevel: 5,
