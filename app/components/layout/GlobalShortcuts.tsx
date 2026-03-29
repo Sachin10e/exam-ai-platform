@@ -40,7 +40,7 @@ export default function GlobalShortcuts() {
     return (
         <>
             {/* Legacy Search UI removed in favor of TopNav Quick Actions Palette */}
-            {/* AI Tutor floating button REMOVED per user request */}
+            {/* Floating AI Tutor Button: REMOVED per user request — keyboard shortcut Cmd+/ still works */}
         </>
     );
 }

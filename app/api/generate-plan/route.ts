@@ -116,12 +116,13 @@ B --> C["Step 2"]
 C --> D["End"]
 \`\`\`
    - You MUST use rich formatting to explain concepts clearly: Use ASCII flowcharts, code blocks, step-by-step logic, bold keywords, and bulleted lists.
-    - EVERY single answer in SECTION 1 (Long Questions) MUST end with these 3 items IN ORDER on separate lines:
-      1. **Pro-Tip:** [tip text here]
-      2. **Web:** [Search Web for {Topic}](https://www.google.com/search?q={URL_ENCODED_TOPIC})
-      3. **YouTube:** [Watch YouTube Tutorial for {Topic}](https://www.youtube.com/results?search_query={URL_ENCODED_TOPIC})
+4. SEPARATE RESOURCES AND TIPS on new lines (FOR EVERY SECTION 1 QUESTION):
+    - EVERY single answer in SECTION 1 (Long Questions) MUST end with these 3 items IN ORDER, each on its own NEW LINE:
+      1. **Pro-Tip:** [Insert a useful exam tip or mnemonic]
+      2. **Web Search:** \`[Search Web for {Topic}](https://www.google.com/search?q={URL_ENCODED_TOPIC})\`
+      3. **YouTube:** \`[Watch Tutorial for {Topic}](https://www.youtube.com/results?search_query={URL_ENCODED_TOPIC})\`
     - CRITICAL: Replace \`{URL_ENCODED_TOPIC}\` with real URL-encoded text (e.g., \`FIRST+FOLLOW+Sets+CFG\`). NEVER output the literal placeholder text.
-    - DO NOT use any emojis (no 💡🌍📺🧠). Use only the bold text labels shown above.
+    - DO NOT use any emojis (no 💡🌍📺🧠) in the Pro-Tip, Web Search, or YouTube lines. Use ONLY the bold text labels shown above.
     - This is NON-NEGOTIABLE. EVERY Section 1 answer MUST have all 3 of these resource lines.
     - Section 2 (Short) and Section 3 (MCQ) answers do NOT need resource links.
 5. TYPOGRAPHY RESTRICTIONS(STRICT):
@@ -130,7 +131,7 @@ C --> D["End"]
    - MULTIPLE CHOICE FORMAT: Place the ✅ tick mark INLINE next to the correct option string.DO NOT make a separate "Correct Answer" line.
 
             CRITICAL - USE THIS EXACT MARKDOWN TEMPLATE AS YOUR FRAMEWORK:
-## Unit ${targetUnit}${examType === 'Mid' && targetUnit === 3 ? (midType === 'Mid 1' ? ' (First Half)' : ' (Second Half)') : ''}
+## Unit ${targetUnit}
 
 ### SECTION 1: LONG EXPECTED QUESTIONS
 #### Question 1: [Insert Question Here][${answerLength === 'Long' ? '10' : '5'} Marks]
@@ -139,16 +140,16 @@ C --> D["End"]
             [Insert concise, highly exam - specific bullet points.Stay strictly within the syllabus scope and structure the answer to efficiently secure maximum marks.]
 
             | Feature | Point A | Point B |
-| ---| ---| ---|
+| ---|---|---|
 | Example | Data | Data |
 
                 [Optional ASCII Flowcharts / Diagrams if applicable]
 
-💡 Pro - Tip: [Insert tip]
+**Pro-Tip:** [Insert tip]
 
-        **Web:** [Search Web for { Exact Topic Name }](https://www.google.com/search?q={URL_ENCODED_TOPIC})
+**Web Search:** [Search Web for {Exact Topic Name}](https://www.google.com/search?q={URL_ENCODED_TOPIC})
 
-        **YouTube:** [Watch YouTube Tutorial for { Exact Topic Name }](https://www.youtube.com/results?search_query={URL_ENCODED_TOPIC})
+**YouTube:** [Watch Tutorial for {Exact Topic Name}](https://www.youtube.com/results?search_query={URL_ENCODED_TOPIC})
 
 ---
 #### Question 2: [Insert Question Here][${answerLength === 'Long' ? '10' : '5'} Marks]

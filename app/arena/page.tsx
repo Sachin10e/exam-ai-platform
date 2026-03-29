@@ -1063,12 +1063,14 @@ export default function ExamDashboard() {
                 </button>
                 <div className="h-6 w-1 bg-indigo-500 rounded-full shrink-0"></div>
                 <div className="flex flex-col">
-                  <h3 className="text-base md:text-lg font-bold text-slate-100 tracking-tight leading-tight">Unit {targetUnit}</h3>
-                  {examType === 'Mid' && (
-                    <span className="text-xs text-teal-400 font-semibold">
-                      {midType === 'Mid 1' ? 'First Half (Units 1–2.5)' : 'Second Half (Units 2.5–5)'}
-                    </span>
-                  )}
+                  <h3 className="text-base md:text-lg font-bold text-slate-100 tracking-tight leading-tight">
+                    Unit {targetUnit}
+                    {examType === 'Mid' && (
+                      <span className="text-teal-400 font-semibold ml-2 text-sm">
+                        ({midType === 'Mid 1' ? 'First Half' : 'Second Half'})
+                      </span>
+                    )}
+                  </h3>
                 </div>
               </div>
 
@@ -1302,7 +1304,7 @@ export default function ExamDashboard() {
                         el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
                       }
                     }}
-                    className="fixed bottom-20 right-4 md:right-8 z-[60] p-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full shadow-2xl transition-colors focus:ring-4 focus:ring-indigo-500/50 flex items-center justify-center group"
+                    className="fixed bottom-6 right-6 z-[60] p-3.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full shadow-2xl transition-colors focus:ring-4 focus:ring-indigo-500/50 flex items-center justify-center group print:hidden"
                     title={scrollDirection === 'up' ? "Back to Top" : "Scroll to Bottom"}
                   >
                     {scrollDirection === 'up' ? (
@@ -1314,9 +1316,9 @@ export default function ExamDashboard() {
                 )}
               </AnimatePresence>
 
-            {/* Floating Chat Bar — fixed to viewport bottom, ChatGPT style */}
+            {/* Floating Chat Bar — fixed to viewport bottom, aligned with content */}
             <div className="fixed bottom-0 left-0 right-0 z-[55] print:hidden">
-              <div className="max-w-[800px] mx-auto px-3 md:px-6 pb-3 pt-2">
+              <div className="max-w-[800px] mx-auto px-4 md:px-12 pb-3 pt-2">
                 <form onSubmit={handleSendMessage} className="flex items-center gap-3 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl px-4 py-2.5 shadow-[0_-4px_30px_rgba(0,0,0,0.3)]">
                   <input
                     type="text"
