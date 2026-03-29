@@ -10,11 +10,14 @@ import { generateTopicRelationships } from '../../lib/analytics/topicRelationshi
 import { createClient } from '@/utils/supabase/server'
 
 async function extractPdfText(buffer: Buffer): Promise<string> {
-    // Use pdfjs-dist CJS (works in Vercel serverless; .mjs import can fail due to ESM resolution)
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.cjs');
+    // pdfjs-dist v5 ships only .mjs — use dynamic import() inside an async function
+    // This works correctly in Next.js server actions on Vercel Node.js runtime
+    const pdfjsLib = await import('pdfjs-dist');
+    // Disable worker (we are in Node.js server-side, no DOM/WebWorker)
+    // @ts-ignore
     pdfjsLib.GlobalWorkerOptions.workerSrc = '';
     const uint8Array = new Uint8Array(buffer);
+    // @ts-ignore
     const loadingTask = pdfjsLib.getDocument({ data: uint8Array, useSystemFonts: true, disableFontFace: true });
     const pdfDoc = await loadingTask.promise;
     const numPages = pdfDoc.numPages;
