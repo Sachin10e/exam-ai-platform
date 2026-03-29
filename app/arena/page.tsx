@@ -766,7 +766,7 @@ export default function ExamDashboard() {
 
   return (
     <div className={clsx(
-      "flex h-full print:h-auto print:block print:overflow-visible bg-slate-950 print:bg-[#fdfaf0] text-slate-100 print:text-[#1E1E1E] font-sans selection:bg-indigo-500/30 relative",
+      "flex h-full overflow-hidden print:h-auto print:block print:overflow-visible bg-slate-950 print:bg-[#fdfaf0] text-slate-100 print:text-[#1E1E1E] font-sans selection:bg-indigo-500/30 relative",
       isHandwritten ? "print-handwritten" : "",
       isFocusMode ? "focus-mode" : ""
     )}>
@@ -1065,14 +1065,14 @@ export default function ExamDashboard() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 flex flex-col min-h-0 print:min-h-full print:h-auto print:block print:overflow-visible relative">
 
             {/* Header Area */}
-            <div className="border-b border-slate-700/30 px-6 h-16 bg-slate-900/40 backdrop-blur-2xl sticky top-0 z-20 flex justify-between items-center shadow-sm relative print:hidden">
-              <div className="flex items-center gap-4 flex-1">
+            <div className="border-b border-slate-700/30 px-3 md:px-6 h-14 md:h-16 bg-slate-900/40 backdrop-blur-2xl sticky top-0 z-20 flex justify-between items-center shadow-sm relative print:hidden">
+              <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
                 <button
                   onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                  className="p-2 bg-slate-800/80 hover:bg-slate-700 rounded-lg text-slate-300 border border-slate-700 transition-colors shadow-sm shrink-0"
+                  className="p-1.5 md:p-2 bg-slate-800/80 hover:bg-slate-700 rounded-lg text-slate-300 border border-slate-700 transition-colors shadow-sm shrink-0"
                   title={isSidebarOpen && !isFocusMode ? "Close Configuration Sidebar" : "Open Configuration Sidebar"}
                 >
-                  {isSidebarOpen && !isFocusMode ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
+                  {isSidebarOpen && !isFocusMode ? <PanelLeftClose className="w-4 h-4 md:w-5 md:h-5" /> : <PanelLeftOpen className="w-4 h-4 md:w-5 md:h-5" />}
                 </button>
                 <div className="h-6 w-1 bg-indigo-500 rounded-full shrink-0"></div>
                 <div className="flex flex-col">
@@ -1086,7 +1086,7 @@ export default function ExamDashboard() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 shrink-0">
+              <div className="flex items-center gap-1.5 md:gap-3 shrink-0">
                 <button
                   onClick={() => generateStudyPlan(true)}
                   className="p-2 bg-slate-800/80 hover:bg-slate-700 rounded-lg text-slate-300 border border-slate-700 transition-colors shadow-sm"
