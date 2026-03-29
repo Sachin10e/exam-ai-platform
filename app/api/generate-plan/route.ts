@@ -117,13 +117,18 @@ C --> D["End"]
 \`\`\`
    - You MUST use rich formatting to explain concepts clearly: Use ASCII flowcharts, code blocks, step-by-step logic, bold keywords, and bulleted lists.
 4. SEPARATE RESOURCES AND TIPS on new lines (FOR EVERY SECTION 1 QUESTION):
-    - EVERY single answer in SECTION 1 (Long Questions) MUST end with these 3 items IN ORDER, each on its own NEW LINE:
-      1. **Pro-Tip:** [Insert a useful exam tip or mnemonic]
-      2. **Web Search:** \`[Search Web for {Topic}](https://www.google.com/search?q={URL_ENCODED_TOPIC})\`
-      3. **YouTube:** \`[Watch Tutorial for {Topic}](https://www.youtube.com/results?search_query={URL_ENCODED_TOPIC})\`
+    - EVERY single answer in SECTION 1 (Long Questions) MUST end with these 3 items. EACH ITEM MUST BE ON ITS OWN SEPARATE LINE with a BLANK LINE between them:
+
+**Pro-Tip:** [Insert a useful exam tip or mnemonic]
+
+**Web Search:** [Search Web for {Topic}](https://www.google.com/search?q={URL_ENCODED_TOPIC})
+
+**YouTube:** [Watch Tutorial for {Topic}](https://www.youtube.com/results?search_query={URL_ENCODED_TOPIC})
+
     - CRITICAL: Replace \`{URL_ENCODED_TOPIC}\` with real URL-encoded text (e.g., \`FIRST+FOLLOW+Sets+CFG\`). NEVER output the literal placeholder text.
     - DO NOT use any emojis (no 💡🌍📺🧠) in the Pro-Tip, Web Search, or YouTube lines. Use ONLY the bold text labels shown above.
-    - This is NON-NEGOTIABLE. EVERY Section 1 answer MUST have all 3 of these resource lines.
+    - NEVER put Pro-Tip, Web Search, and YouTube on the SAME LINE. Each MUST be its own separate paragraph.
+    - This is NON-NEGOTIABLE. EVERY Section 1 answer MUST have all 3 of these resource lines on SEPARATE lines.
     - Section 2 (Short) and Section 3 (MCQ) answers do NOT need resource links.
 5. TYPOGRAPHY RESTRICTIONS(STRICT):
    - CRITICAL QUESTION SIZING: For EVERY SINGLE QUESTION across ALL 3 Sections, you MUST start the line with exactly '#### ' (Markdown Header 4). Examples: '#### Question 1: ', '#### Q1: ', '#### MCQ 1: '.

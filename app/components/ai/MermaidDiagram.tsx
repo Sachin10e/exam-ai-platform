@@ -16,6 +16,20 @@ export default function MermaidDiagram({ chart }: MermaidProps) {
     const [error, setError] = useState<boolean>(false);
     const [chartId] = useState(() => `mermaid-${uuid().substring(0, 8)}`);
 
+    // Sanitize common AI-generated mermaid syntax errors
+    const sanitizeChart = (raw: string): string => {
+        let s = raw;
+        // Fix unquoted labels with special chars: A --> B(Label with (parens)) → A --> B["Label with (parens)"]
+        s = s.replace(/(\w+)\{("[^"]*")\}/g, '$1{$2}'); // already quoted rhombus — leave alone
+        // Fix curly-brace decision nodes with unquoted text: A{ text } → A{"text"}
+        s = s.replace(/(\w+)\{\s*([^"{}][^{}]*?)\s*\}/g, (_m, id, label) => `${id}{"${label.trim()}"}`);
+        // Fix square brackets with unquoted parens: A[Label (x)] → A["Label (x)"]
+        s = s.replace(/(\w+)\[([^\]"]*\([^\]]*\)[^\]"]*)\]/g, (_m, id, label) => `${id}["${label.trim()}"]`);
+        // Fix -- text with special chars on edges: -- text --> needs quoting if it has parens
+        s = s.replace(/--\s*([^>|[\]"{}][^>|]*?\([^)]*\)[^>|]*?)\s*-->/g, (_m, label) => `-- "${label.trim()}" -->`);
+        return s;
+    };
+
     useEffect(() => {
         mermaid.initialize({
             startOnLoad: false,
@@ -29,7 +43,7 @@ export default function MermaidDiagram({ chart }: MermaidProps) {
                 nodeBorder: '#818cf8',
                 fontSize: '14px',
             },
-            securityLevel: 'strict',
+            securityLevel: 'loose',
             fontFamily: 'Inter',
             logLevel: 5,
             suppressErrorRendering: true,
@@ -39,16 +53,17 @@ export default function MermaidDiagram({ chart }: MermaidProps) {
         const renderChart = async () => {
             try {
                 if (!chart) return;
+                const sanitized = sanitizeChart(chart);
                 
                 // Validate syntax to prevent crash from incomplete stream chunks
-                const isSyntaxValid = await mermaid.parse(chart, { suppressErrors: true }).catch(() => false);
+                const isSyntaxValid = await mermaid.parse(sanitized, { suppressErrors: true }).catch(() => false);
                 if (!isSyntaxValid) {
                     // Fail silently during stream
                     if (isMounted) setError(true);
                     return;
                 }
 
-                const { svg } = await mermaid.render(chartId, chart);
+                const { svg } = await mermaid.render(chartId, sanitized);
                 if (isMounted) {
                     setSvgContent(svg);
                     setError(false);

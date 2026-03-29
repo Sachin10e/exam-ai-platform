@@ -93,16 +93,26 @@ const ThrottledMarkdown = React.memo(({ content }: { content: string }) => {
       rehypePlugins={[rehypeKatex, rehypeHighlight]}
       components={{
         h1: ({ node, ...props }) => <h1 className="text-4xl md:text-5xl font-black text-slate-100 print:text-[#1E1E1E] tracking-tight mt-14 mb-8 border-b border-slate-700/50 print:border-[#E5E7EB] pb-4" {...props} />,
-        h2: ({ node, ...props }) => <h2 className="text-2xl md:text-3xl font-bold text-slate-100 print:text-[#1E1E1E] mt-12 mb-6" {...props} />,
-        h3: ({ node, ...props }) => <h3 className="text-xl md:text-2xl font-semibold text-slate-100 print:text-[#1E1E1E] mt-10 mb-5" {...props} />,
-        h4: ({ node, ...props }) => <h4 className="text-lg md:text-xl font-bold text-slate-100 mt-10 mb-4 tracking-tight" {...props} />,
-        p: ({ node, ...props }) => <p className="text-lg md:text-[1.15rem] leading-[1.85] text-slate-100 print:text-[#1E1E1E] mb-8 font-normal" {...props} />,
-        ul: ({ node, ...props }) => <ul className="list-disc pl-6 mb-8 space-y-4 text-lg md:text-[1.15rem] leading-[1.85] text-slate-100 print:text-[#1E1E1E] font-normal" {...props} />,
-        ol: ({ node, ...props }) => <ol className="list-decimal pl-6 mb-8 space-y-4 text-lg md:text-[1.15rem] leading-[1.85] text-slate-100 print:text-[#1E1E1E] font-normal" {...props} />,
+        h2: ({ node, ...props }) => <h2 className="text-3xl md:text-[2rem] font-bold text-slate-100 print:text-[#1E1E1E] mt-12 mb-6" {...props} />,
+        h3: ({ node, ...props }) => <h3 className="text-2xl md:text-[1.65rem] font-semibold text-slate-100 print:text-[#1E1E1E] mt-10 mb-5" {...props} />,
+        h4: ({ node, ...props }) => <h4 className="text-xl md:text-[1.35rem] font-bold text-slate-100 mt-10 mb-4 tracking-tight" {...props} />,
+        p: ({ node, ...props }) => <p className="text-[1.15rem] md:text-[1.25rem] leading-[1.9] text-slate-100 print:text-[#1E1E1E] mb-8 font-normal" {...props} />,
+        ul: ({ node, ...props }) => <ul className="list-disc pl-6 mb-8 space-y-4 text-[1.15rem] md:text-[1.25rem] leading-[1.9] text-slate-100 print:text-[#1E1E1E] font-normal" {...props} />,
+        ol: ({ node, ...props }) => <ol className="list-decimal pl-6 mb-8 space-y-4 text-[1.15rem] md:text-[1.25rem] leading-[1.9] text-slate-100 print:text-[#1E1E1E] font-normal" {...props} />,
         li: ({ node, ...props }) => <li className="pl-2" {...props} />,
-        strong: ({ node, ...props }) => <strong className="font-bold text-slate-100 print:text-black" {...props} />,
+        strong: ({ node, children, ...props }) => {
+          const text = String(children || '');
+          // Hide Web Search and YouTube lines in print mode
+          if (text === 'Web Search:' || text === 'YouTube:') {
+            return <strong className="font-bold text-slate-100 print:text-black print:hidden" {...props}>{children}</strong>;
+          }
+          return <strong className="font-bold text-slate-100 print:text-black" {...props}>{children}</strong>;
+        },
         em: ({ node, ...props }) => <em className="italic text-slate-200 print:text-black" {...props} />,
-        a: ({ node, ...props }) => <a className="text-blue-300 hover:text-blue-200 print:text-blue-700 underline underline-offset-4" target="_blank" rel="noopener noreferrer" {...props} />,
+        a: ({ node, href, ...props }) => {
+          const isResourceLink = href && (href.includes('google.com/search') || href.includes('youtube.com/results'));
+          return <a className={`text-blue-300 hover:text-blue-200 print:text-blue-700 underline underline-offset-4 ${isResourceLink ? 'print:hidden' : ''}`} target="_blank" rel="noopener noreferrer" href={href} {...props} />;
+        },
         blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-slate-600 pl-6 py-2 my-6 italic text-slate-200 print:text-[#1E1E1E] bg-slate-800/20 print:bg-slate-50 rounded-r-xl" {...props} />,
         hr: ({ node, ...props }) => <hr className="border-slate-800 border-t-2 my-12" {...props} />,
         table: ({ node, ...props }) => (
@@ -1129,11 +1139,17 @@ export default function ExamDashboard() {
 
             {/* Chat/Markdown Feed — bottom padding accounts for floating chat bar */}
             <div
-              className="flex-1 overflow-y-auto print:overflow-visible print:block print:h-auto px-4 md:px-12 pt-6 pb-36 print:px-0 print:py-0 scroll-smooth custom-scrollbar relative"
+              className={clsx(
+                "flex-1 overflow-y-auto print:overflow-visible print:block print:h-auto pt-6 pb-36 print:px-0 print:py-0 scroll-smooth custom-scrollbar relative",
+                isFocusMode ? "px-6 md:px-16" : "px-4 md:px-12"
+              )}
               ref={scrollContainerRef}
               onScroll={handleScroll}
             >
-              <div className="max-w-[800px] mx-auto pb-40 print:max-w-none print:w-full print:mx-0 print:pb-0 print:block flex flex-col gap-10 print:gap-0">
+              <div className={clsx(
+                "mx-auto pb-40 print:max-w-none print:w-full print:mx-0 print:pb-0 print:block flex flex-col gap-10 print:gap-0",
+                isFocusMode ? "max-w-[860px]" : "max-w-[800px]"
+              )}>
 {/* Estimated Study Time: REMOVED per user request */}
                 <table className="w-full border-collapse !border-none !bg-transparent print:table block">
                   <thead className="table-header-group !border-none !bg-transparent hidden print:table-header-group">
