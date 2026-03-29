@@ -150,11 +150,11 @@ const ThrottledMarkdown = React.memo(({ content }: { content: string }) => {
               }
             }
             return (
-              <div className="my-8 rounded-xl overflow-hidden ring-1 ring-slate-700/50 shadow-2xl bg-[#0d1117]">
-                <div className="px-4 py-3 bg-slate-800/80 border-b border-slate-700/50 text-xs text-slate-400 font-mono uppercase flex justify-between items-center tracking-wider">
+              <div className="my-8 rounded-xl overflow-hidden ring-1 ring-slate-700/50 print:ring-slate-300 shadow-2xl print:shadow-md bg-[#0d1117] print:bg-white">
+                <div className="px-4 py-3 bg-slate-800/80 print:bg-slate-100 border-b border-slate-700/50 print:border-slate-300 text-xs text-slate-400 print:text-slate-600 font-mono uppercase flex justify-between items-center tracking-wider">
                   <span>{language}</span>
                 </div>
-                <pre className="p-5 overflow-x-auto text-[0.95rem] leading-relaxed" {...props}>
+                <pre className="p-5 overflow-x-auto text-[0.95rem] leading-relaxed print:text-black" {...props}>
                   {React.cloneElement(codeElement as React.ReactElement<Record<string, unknown>>, { 'data-block': true })}
                 </pre>
               </div>
@@ -167,7 +167,7 @@ const ThrottledMarkdown = React.memo(({ content }: { content: string }) => {
             return <code className={className} {...props}>{children}</code>
           }
           return (
-            <code className="bg-slate-800/80 text-indigo-300 px-2 py-1 rounded-md font-mono text-[0.9em] border border-slate-700/50" {...props}>
+            <code className="bg-slate-800/80 print:bg-slate-100 text-indigo-300 print:text-indigo-700 px-2 py-1 rounded-md font-mono text-[0.9em] border border-slate-700/50 print:border-slate-300" {...props}>
               {children}
             </code>
           )
@@ -1306,7 +1306,7 @@ export default function ExamDashboard() {
               </div>
 
               {/* Sticky Chat Bar — inside scroll container for proper alignment */}
-              <div className="sticky bottom-0 z-[55] print:hidden bg-gradient-to-t from-slate-950 via-slate-950/95 to-transparent pt-4">
+              <div className="sticky bottom-0 z-[15] print:hidden bg-gradient-to-t from-slate-950 via-slate-950/95 to-transparent pt-4">
                 <div className={clsx(
                   "mx-auto pb-3",
                   isFocusMode ? "max-w-[860px] px-6 md:px-16" : "max-w-[800px] px-4 md:px-12"

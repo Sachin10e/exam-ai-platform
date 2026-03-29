@@ -75,14 +75,9 @@ export default function MermaidDiagram({ chart }: MermaidProps) {
                 if (!chart) return;
                 const sanitized = sanitizeChart(chart);
                 
-                // Validate syntax to prevent crash from incomplete stream chunks
-                const isSyntaxValid = await mermaid.parse(sanitized, { suppressErrors: true }).catch(() => false);
-                if (!isSyntaxValid) {
-                    // Fail silently during stream
-                    if (isMounted) setError(true);
-                    return;
-                }
-
+                // Go directly to render — mermaid.parse() is too strict and rejects
+                // valid charts with Greek chars (α, ε), arrows (->), etc. in labels.
+                // If render fails, the catch block shows the error fallback.
                 const { svg } = await mermaid.render(chartId, sanitized);
                 if (isMounted) {
                     setSvgContent(svg);
