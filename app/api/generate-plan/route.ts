@@ -117,18 +117,20 @@ C --> D["End"]
 \`\`\`
    - You MUST use rich formatting to explain concepts clearly: Use ASCII flowcharts, code blocks, step-by-step logic, bold keywords, and bulleted lists.
 4. SEPARATE RESOURCES AND TIPS on new lines (FOR EVERY QUESTION):
-   - Every single Answer MUST end with a short "💡 Pro-Tip:" or "🧠 Mnemonic:" on its own distinct line.
-   - On a NEW LINE, append a Web Reference Link: \`[🌍 Search Web for {Insert Topic Formatted as Plain Text}](https://www.google.com/search?q={INSERT_URL_ENCODED_TOPIC_HERE})\`
-   - On a NEW LINE, append a YouTube Link: \`[📺 Watch YouTube Tutorial for {Insert Topic Formatted as Plain text}](https://www.youtube.com/results?search_query={INSERT_URL_ENCODED_TOPIC_HERE})\`
-   - CRITICAL: You MUST replace \`{INSERT_URL_ENCODED_TOPIC_HERE}\` with actual URL-encoded strings (e.g., \`Finite+Automata+Central+Concepts\`). DO NOT output the literal string \`{INSERT_URL_ENCODED_TOPIC_HERE}\`.
-   - You MUST include these 3 lines at the end of EVERY answer. This is an absolute requirement.
+    - EVERY single answer in SECTION 1 (Long Questions) MUST end with these 3 items IN ORDER:
+      1. A "💡 Pro-Tip:" or "🧠 Mnemonic:" line
+      2. A web link: \`[🌍 Search Web for {Topic}](https://www.google.com/search?q={URL_ENCODED_TOPIC})\`
+      3. A YouTube link: \`[📺 Watch YouTube Tutorial for {Topic}](https://www.youtube.com/results?search_query={URL_ENCODED_TOPIC})\`
+    - CRITICAL: Replace \`{URL_ENCODED_TOPIC}\` with real URL-encoded text (e.g., \`FIRST+FOLLOW+Sets+CFG\`). NEVER output the literal placeholder text.
+    - This is NON-NEGOTIABLE. EVERY Section 1 answer MUST have all 3 of these resource lines.
+    - Section 2 (Short) and Section 3 (MCQ) answers do NOT need resource links.
 5. TYPOGRAPHY RESTRICTIONS(STRICT):
    - CRITICAL QUESTION SIZING: For EVERY SINGLE QUESTION across ALL 3 Sections, you MUST start the line with exactly '#### ' (Markdown Header 4). Examples: '#### Question 1: ', '#### Q1: ', '#### MCQ 1: '.
    - CRITICAL ANSWER SIZING(SECTION 2): You MUST NOT use ANY Markdown headers('#', '##', '###', '####') for the answers in Section 2. You MUST NOT use ANY asterisks('**').Prefix the answer text strictly with 'A: ' rather than 'Answer:'.It MUST be exactly: 'A: [Plain normal weight text]'.
    - MULTIPLE CHOICE FORMAT: Place the ✅ tick mark INLINE next to the correct option string.DO NOT make a separate "Correct Answer" line.
 
             CRITICAL - USE THIS EXACT MARKDOWN TEMPLATE AS YOUR FRAMEWORK:
-## 📘 Unit ${targetUnit} Exhaustive Plan
+## 📘 Unit ${targetUnit}
 
 ### SECTION 1: LONG EXPECTED QUESTIONS
 #### Question 1: [Insert Question Here][${answerLength === 'Long' ? '10' : '5'} Marks]

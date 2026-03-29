@@ -731,7 +731,7 @@ export default function ExamDashboard() {
     }
     lastScrollTopRef.current = scrollTop
 
-    setShowBackToTop(scrollTop > 500)
+    setShowBackToTop(scrollTop > 150)
     setIsScrolling(true)
 
     if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current)
@@ -1062,7 +1062,14 @@ export default function ExamDashboard() {
                   {isSidebarOpen && !isFocusMode ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
                 </button>
                 <div className="h-6 w-1 bg-indigo-500 rounded-full shrink-0"></div>
-                <h3 className="text-lg md:text-xl font-bold text-slate-100 tracking-tight shrink-0">Unit {targetUnit}</h3>
+                <div className="flex flex-col">
+                  <h3 className="text-base md:text-lg font-bold text-slate-100 tracking-tight leading-tight">Unit {targetUnit}</h3>
+                  {examType === 'Mid' && (
+                    <span className="text-xs text-teal-400 font-semibold">
+                      {midType === 'Mid 1' ? 'First Half (Units 1–2.5)' : 'Second Half (Units 2.5–5)'}
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center gap-3 shrink-0">
@@ -1155,10 +1162,7 @@ export default function ExamDashboard() {
 
                         // Strip all emojis EXCEPT checks and crosses (✅, ✔️, ❌) which are needed to tick MCQs
                         displayContent = displayContent.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{2704}\u{2706}-\u{2713}\u{2715}-\u{274B}\u{274D}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{1F1E6}-\u{1F1FF}\u{1F900}-\u{1F9FF}\u{1FA70}-\u{1FAFF}\u{1F400}-\u{1F4FF}\u{2B50}]/gu, '');
-                        // Strip lines containing generic search/video links
-                        displayContent = displayContent.replace(/^.*Search Web.*$/gmi, '');
-                        displayContent = displayContent.replace(/^.*Watch video.*$/gmi, '');
-                        displayContent = displayContent.replace(/^.*youtube.*$/gmi, '');
+                        // NOTE: Web/YouTube resource links are intentionally preserved — do NOT strip them.
 
                         // Replace green ✅ with a simple bold unicode ✔️ (which renders natively black)
                         displayContent = displayContent.replace(/✅/gi, '**✔**');
@@ -1311,17 +1315,23 @@ export default function ExamDashboard() {
             </div>
 
             {/* Floating Chat Bar — fixed to viewport bottom, ChatGPT style */}
-            <div className="fixed bottom-0 left-0 right-0 z-40 print:hidden pointer-events-none">
-              <div className="pointer-events-auto max-w-[800px] mx-auto px-4 md:px-6 pb-4 pt-3">
-                <form onSubmit={handleSendMessage} className="relative flex items-center shadow-2xl bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl overflow-hidden">
+            <div className="fixed bottom-0 left-0 right-0 z-40 print:hidden">
+              <div className="max-w-[800px] mx-auto px-4 md:px-6 pb-4 pt-2">
+                <form onSubmit={handleSendMessage} className="flex items-center gap-2 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl px-4 py-2 shadow-2xl">
                   <input
-                    type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)}
+                    type="text"
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
                     placeholder="Ask about the study plan..."
                     disabled={isChatLoading || isGenerating}
-                    className="w-full pl-5 pr-14 py-3.5 bg-transparent outline-none text-sm md:text-base text-slate-100 placeholder:text-slate-500 font-sans"
+                    className="flex-1 min-w-0 bg-transparent outline-none text-sm md:text-base text-slate-100 placeholder:text-slate-500 font-sans py-2"
                   />
-                  <button type="submit" disabled={!chatInput.trim() || isChatLoading || isGenerating} className="absolute right-2.5 aspect-square flex items-center justify-center p-2 bg-indigo-600 shadow-md text-white rounded-xl hover:bg-indigo-500 disabled:opacity-40 disabled:bg-slate-800 disabled:text-slate-600 transition-colors">
-                    <span className="font-black text-lg leading-none">↑</span>
+                  <button
+                    type="submit"
+                    disabled={!chatInput.trim() || isChatLoading || isGenerating}
+                    className="shrink-0 w-9 h-9 flex items-center justify-center bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 disabled:opacity-40 disabled:bg-slate-800 disabled:text-slate-600 transition-colors shadow-md"
+                  >
+                    <span className="font-black text-base leading-none">↑</span>
                   </button>
                 </form>
               </div>
