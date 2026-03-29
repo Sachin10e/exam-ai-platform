@@ -1160,8 +1160,8 @@ export default function ExamDashboard() {
                         // Start directly from Unit 1 by collapsing the entire Survival Plan Intro Message entirely
                         displayContent = displayContent.replace(/# 🎓 Survival Plan Generated[\s\S]*?deeper detail\./, '');
 
-                        // Strip all emojis EXCEPT checks and crosses (✅, ✔️, ❌) which are needed to tick MCQs
-                        displayContent = displayContent.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{2704}\u{2706}-\u{2713}\u{2715}-\u{274B}\u{274D}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{1F1E6}-\u{1F1FF}\u{1F900}-\u{1F9FF}\u{1FA70}-\u{1FAFF}\u{1F400}-\u{1F4FF}\u{2B50}]/gu, '');
+                        // Strip all emojis EXCEPT: ✅ ✔️ ❌ (MCQs), 🌍 📺 💡 🧠 (resource links & tips)
+                        displayContent = displayContent.replace(/(?!\u{1F30D}|\u{1F4FA}|\u{1F4A1}|\u{1F9E0})[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{2704}\u{2706}-\u{2713}\u{2715}-\u{274B}\u{274D}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{1F1E6}-\u{1F1FF}\u{1F900}-\u{1F9FF}\u{1FA70}-\u{1FAFF}\u{1F400}-\u{1F4FF}\u{2B50}]/gu, '');
                         // NOTE: Web/YouTube resource links are intentionally preserved — do NOT strip them.
 
                         // Replace green ✅ with a simple bold unicode ✔️ (which renders natively black)
@@ -1284,8 +1284,9 @@ export default function ExamDashboard() {
                 )}
                 <div ref={endOfMessagesRef} className="h-4"></div>
               </div>
+            </div>
 
-              {/* Smart Back to Top/Bottom FAB — shows on scroll, hides when idle */}
+              {/* Smart Back to Top/Bottom FAB — OUTSIDE scroll container so fixed positioning works */}
               <AnimatePresence>
                 {showBackToTop && (
                   <motion.button
@@ -1301,7 +1302,7 @@ export default function ExamDashboard() {
                         el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
                       }
                     }}
-                    className="fixed bottom-32 right-4 md:right-12 z-50 p-3.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full shadow-2xl transition-colors focus:ring-4 focus:ring-indigo-500/50 flex items-center justify-center group"
+                    className="fixed bottom-20 right-4 md:right-8 z-[60] p-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full shadow-2xl transition-colors focus:ring-4 focus:ring-indigo-500/50 flex items-center justify-center group"
                     title={scrollDirection === 'up' ? "Back to Top" : "Scroll to Bottom"}
                   >
                     {scrollDirection === 'up' ? (
@@ -1312,26 +1313,25 @@ export default function ExamDashboard() {
                   </motion.button>
                 )}
               </AnimatePresence>
-            </div>
 
             {/* Floating Chat Bar — fixed to viewport bottom, ChatGPT style */}
-            <div className="fixed bottom-0 left-0 right-0 z-40 print:hidden">
-              <div className="max-w-[800px] mx-auto px-4 md:px-6 pb-4 pt-2">
-                <form onSubmit={handleSendMessage} className="flex items-center gap-2 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl px-4 py-2 shadow-2xl">
+            <div className="fixed bottom-0 left-0 right-0 z-[55] print:hidden">
+              <div className="max-w-[800px] mx-auto px-3 md:px-6 pb-3 pt-2">
+                <form onSubmit={handleSendMessage} className="flex items-center gap-3 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl px-4 py-2.5 shadow-[0_-4px_30px_rgba(0,0,0,0.3)]">
                   <input
                     type="text"
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     placeholder="Ask about the study plan..."
                     disabled={isChatLoading || isGenerating}
-                    className="flex-1 min-w-0 bg-transparent outline-none text-sm md:text-base text-slate-100 placeholder:text-slate-500 font-sans py-2"
+                    className="flex-1 min-w-0 bg-transparent outline-none text-sm md:text-base text-slate-100 placeholder:text-slate-500 font-sans py-1.5"
                   />
                   <button
                     type="submit"
                     disabled={!chatInput.trim() || isChatLoading || isGenerating}
-                    className="shrink-0 w-9 h-9 flex items-center justify-center bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 disabled:opacity-40 disabled:bg-slate-800 disabled:text-slate-600 transition-colors shadow-md"
+                    className="shrink-0 w-10 h-10 flex items-center justify-center bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 disabled:opacity-40 disabled:bg-slate-800 disabled:text-slate-600 transition-colors shadow-md"
                   >
-                    <span className="font-black text-base leading-none">↑</span>
+                    <span className="font-black text-lg leading-none">↑</span>
                   </button>
                 </form>
               </div>
