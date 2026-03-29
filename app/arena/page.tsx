@@ -438,9 +438,13 @@ export default function ExamDashboard() {
         try {
           const baseName = unuploadedFiles[0].name.replace(/\.[^/.]+$/, "");
           const res = await createSubjectAction(baseName);
+          if (res.error) {
+              setIsGenerating(false); setUploading(false);
+              return alert('Action logic error: ' + res.error);
+          }
           if (res.id) currentSubjectId = res.id;
-        } catch {
-          setIsGenerating(false); setUploading(false); return alert('Database err');
+        } catch (e: any) {
+          setIsGenerating(false); setUploading(false); return alert('Network/Server crash: ' + String(e?.message || e));
         }
       }
 

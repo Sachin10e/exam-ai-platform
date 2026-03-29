@@ -1,7 +1,6 @@
 'use server'
 
 import { createClient as createClientJs } from '@supabase/supabase-js'
-import pdfParse from 'pdf-parse'
 import mammoth from 'mammoth'
 import Tesseract from 'tesseract.js'
 import crypto from 'crypto'
@@ -10,6 +9,24 @@ import { encode, decode } from 'gpt-tokenizer'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { generateTopicRelationships } from '../../lib/analytics/topicRelationships'
 import { createClient } from '@/utils/supabase/server'
+
+async function extractPdfText(buffer: Buffer): Promise<string> {
+    // Use pdfjs-dist which is pure JS and works on Vercel (pdf-parse uses native fs at module level)
+    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs' as any);
+    pdfjsLib.GlobalWorkerOptions = pdfjsLib.GlobalWorkerOptions || {};
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+    const uint8Array = new Uint8Array(buffer);
+    const pdfDoc = await pdfjsLib.getDocument({ data: uint8Array, useSystemFonts: true }).promise;
+    const numPages = pdfDoc.numPages;
+    let fullText = '';
+    for (let i = 1; i <= numPages; i++) {
+        const page = await pdfDoc.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map((item: any) => item.str).join(' ');
+        fullText += pageText + '\n';
+    }
+    return fullText;
+}
 
 // We maintain serviceSupabase specifically for bypassing RLS across extremely heavy global vector searches if necessary
 const serviceSupabase = createClientJs(
@@ -43,26 +60,14 @@ export async function uploadPdfAction(formData: FormData) {
         const fileName = file.name.toLowerCase()
 
         if (mimeType === 'application/pdf' || fileName.endsWith('.pdf')) {
-            // PDF Parsing
-            const pdfData = await pdfParse(buffer, {
-                pagerender: function (pageData: { getTextContent: () => Promise<{ items: { str: string, transform: number[] }[] }> }) {
-                    return pageData.getTextContent().then(function (textContent: { items: { str: string, transform: number[] }[] }) {
-                        let lastY, text = ''
-                        for (const item of textContent.items) {
-                            if (lastY == item.transform[5] || !lastY) {
-                                text += item.str
-                            } else {
-                                text += '\n' + item.str
-                            }
-                            lastY = item.transform[5]
-                        }
-                        return text
-                    })
-                }
-            })
-            FullText = pdfData.text
-        }
-        else if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || fileName.endsWith('.docx')) {
+            // PDF Parsing via pdfjs-dist (Vercel-compatible)
+            try {
+                FullText = await extractPdfText(buffer);
+            } catch (pdfErr) {
+                console.error('PDF parse error:', pdfErr);
+                return { error: 'Failed to parse PDF. Please ensure the file is not password-protected or corrupted.' };
+            }
+        } else if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || fileName.endsWith('.docx')) {
             // DOCX Parsing
             const result = await mammoth.extractRawText({ buffer })
             FullText = result.value
