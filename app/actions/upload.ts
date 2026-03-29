@@ -9,27 +9,11 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 import { generateTopicRelationships } from '../../lib/analytics/topicRelationships'
 import { createClient } from '@/utils/supabase/server'
 
-async function extractPdfText(buffer: Buffer): Promise<string> {
-    // pdfjs-dist v5 ships only .mjs — use dynamic import() inside an async function
-    // This works correctly in Next.js server actions on Vercel Node.js runtime
-    const pdfjsLib = await import('pdfjs-dist');
-    // Disable worker (we are in Node.js server-side, no DOM/WebWorker)
-    // @ts-ignore
-    pdfjsLib.GlobalWorkerOptions.workerSrc = '';
-    const uint8Array = new Uint8Array(buffer);
-    // @ts-ignore
-    const loadingTask = pdfjsLib.getDocument({ data: uint8Array, useSystemFonts: true, disableFontFace: true });
-    const pdfDoc = await loadingTask.promise;
-    const numPages = pdfDoc.numPages;
-    let fullText = '';
-    for (let i = 1; i <= numPages; i++) {
-        const page = await pdfDoc.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = (textContent.items as any[]).map((item: any) => item.str || '').join(' ');
-        fullText += pageText + '\n';
-    }
-    return fullText;
-}
+// Import from the internal lib path — this is the well-known Vercel fix for pdf-parse.
+// The root index.js reads test fixtures from the filesystem at import time (crashes on Vercel).
+// The lib file is pure parsing logic with zero filesystem side effects.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pdfParse: (buffer: Buffer) => Promise<{ text: string }> = require('pdf-parse/lib/pdf-parse.js');
 
 // We maintain serviceSupabase specifically for bypassing RLS across extremely heavy global vector searches if necessary
 const serviceSupabase = createClientJs(
@@ -63,9 +47,10 @@ export async function uploadPdfAction(formData: FormData) {
         const fileName = file.name.toLowerCase()
 
         if (mimeType === 'application/pdf' || fileName.endsWith('.pdf')) {
-            // PDF Parsing via pdfjs-dist (Vercel-compatible)
+            // PDF Parsing via pdf-parse internal lib (Vercel-compatible: no filesystem side effects)
             try {
-                FullText = await extractPdfText(buffer);
+                const pdfData = await pdfParse(buffer);
+                FullText = pdfData.text;
             } catch (pdfErr) {
                 console.error('PDF parse error:', pdfErr);
                 return { error: 'Failed to parse PDF. Please ensure the file is not password-protected or corrupted.' };
