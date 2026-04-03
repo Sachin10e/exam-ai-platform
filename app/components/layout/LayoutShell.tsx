@@ -25,7 +25,7 @@ export default function LayoutShell({ user, children }: LayoutShellProps) {
 
     return (
         // Parent: overflow-hidden to contain children, no scrolling here
-        <div className="flex h-screen w-full overflow-hidden bg-slate-950 text-slate-100 print:h-auto print:block print:overflow-visible">
+        <div className="flex h-screen w-full overflow-x-hidden md:overflow-hidden bg-slate-950 text-slate-100 print:h-auto print:block print:overflow-visible min-w-0 max-w-full">
 
             {!isMobile && isSidebarOpen && (
                 <div id="global-sidebar-wrapper" className="w-[260px] shrink-0 h-full print:hidden">
@@ -36,7 +36,7 @@ export default function LayoutShell({ user, children }: LayoutShellProps) {
             {isMobile && isSidebarOpen && (
                 <div className="fixed inset-0 z-50 flex">
                     
-                    <div className="w-[260px] bg-[#0B0F1A]">
+                    <div className="flex-shrink-0 w-[260px] max-w-[85vw] bg-[#0B0F1A] overflow-x-hidden min-w-0">
                         <Sidebar />
                     </div>
 

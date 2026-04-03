@@ -44,27 +44,27 @@ export default function TopNav({ user }: TopNavProps) {
     return (
         <div className="sticky top-0 z-40 w-full flex flex-col print:hidden transition-transform duration-300">
 
-            <header id="global-topnav" className="h-16 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-3xl flex items-center justify-between px-4 md:px-6">
-                <div className="flex items-center flex-1 max-w-md gap-3">
+            <header id="global-topnav" className="h-[68px] md:h-16 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-3xl flex items-center justify-between px-3 md:px-6 w-full max-w-full overflow-x-hidden min-w-0">
+                <div className="flex items-center flex-1 max-w-md gap-2 md:gap-3 min-w-0">
                 <button 
                   onClick={toggleSidebar}
-                  className="p-2 -ml-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 rounded-lg transition-colors shrink-0"
+                  className="p-2 md:p-2 -ml-1 md:-ml-2 flex items-center justify-center min-h-[44px] min-w-[44px] text-slate-400 focus:text-indigo-400 hover:text-slate-200 hover:bg-slate-800/50 focus:bg-slate-800/50 rounded-lg transition-colors shrink-0"
                 >
-                    <Menu className="w-5 h-5" />
+                    <Menu className="w-6 h-6 md:w-5 md:h-5" />
                 </button>
-                <div className="relative w-full">
+                <div className="relative w-full md:w-[400px] max-w-full min-w-0">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                     <input
                         type="text"
-                        placeholder="Search documents, plans..."
-                        className="w-full bg-slate-900/50 border border-slate-800/80 text-slate-200 text-sm rounded-full pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all placeholder:text-slate-500 shadow-inner"
+                        placeholder="Search..."
+                        className="w-full bg-slate-900/50 border border-slate-800/80 text-slate-200 text-[16px] md:text-sm rounded-full pl-9 pr-4 py-2.5 md:py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all placeholder:text-slate-500 shadow-inner min-h-[44px] md:min-h-0"
                     />
                 </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 md:gap-3 shrink-0 min-w-0">
                 {/* Quick Actions Command Palette Dropdown */}
-                <div className="relative hidden sm:block">
+                <div className="relative hidden lg:block">
                     <button
                         onClick={() => setIsQuickActionsOpen(!isQuickActionsOpen)}
                         className="flex items-center gap-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 text-sm font-semibold px-4 py-2 rounded-full border border-indigo-500/20 transition-all cursor-pointer"
@@ -118,10 +118,10 @@ export default function TopNav({ user }: TopNavProps) {
                     )}
                 </div>
 
-                <div className="relative">
+                <div className="relative hidden md:block">
                     <button 
                         onClick={() => setIsTimerOpen(!isTimerOpen)}
-                        className="p-2 text-slate-400 hover:text-slate-200 relative transition-colors"
+                        className="p-2 flex items-center justify-center min-h-[44px] min-w-[44px] text-slate-400 focus:text-indigo-400 hover:text-slate-200 focus:bg-slate-800/50 rounded-lg relative transition-colors"
                     >
                         <Clock className="w-5 h-5" />
                     </button>
@@ -132,13 +132,15 @@ export default function TopNav({ user }: TopNavProps) {
                     )}
                 </div>
 
-                <ThemeToggle />
+                <div className="hidden md:block">
+                    <ThemeToggle />
+                </div>
 
-                <Link href="/settings" prefetch={false} className="p-2 text-slate-400 hover:text-slate-200 relative transition-colors">
+                <Link href="/settings" prefetch={false} className="p-2 hidden md:flex items-center justify-center min-h-[44px] min-w-[44px] top-nav-link text-slate-400 hover:text-slate-200 focus:bg-slate-800/50 rounded-lg relative transition-colors">
                     <Bell className="w-5 h-5" />
-                    <span className="absolute top-1 right-2 w-2 h-2 bg-rose-500 rounded-full"></span>
+                    <span className="absolute top-2 right-2.5 w-2 h-2 bg-rose-500 rounded-full"></span>
                 </Link>
-                <div className="ml-2 flex items-center">
+                <div className="ml-1 md:ml-2 flex items-center justify-center min-h-[44px] min-w-[44px]">
                     <UserMenu initialUser={user} />
                 </div>
             </div>
