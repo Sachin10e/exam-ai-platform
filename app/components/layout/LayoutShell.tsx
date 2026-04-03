@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { type User as SupabaseUser } from '@supabase/supabase-js';
 import { useSidebarStore } from '../../store/sidebar';
 import Sidebar from './Sidebar';
@@ -13,31 +14,38 @@ interface LayoutShellProps {
 export default function LayoutShell({ user, children }: LayoutShellProps) {
     const isSidebarOpen = useSidebarStore(state => state.isSidebarOpen);
     const setIsSidebarOpen = useSidebarStore(state => state.setIsSidebarOpen);
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     return (
         // Parent: overflow-hidden to contain children, no scrolling here
         <div className="flex h-screen w-full overflow-hidden bg-slate-950 text-slate-100 print:h-auto print:block print:overflow-visible">
 
-            {/* Mobile sidebar overlay backdrop */}
-            {isSidebarOpen && (
-                <div
-                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
-                    onClick={() => setIsSidebarOpen(false)}
-                />
+            {!isMobile && isSidebarOpen && (
+                <div id="global-sidebar-wrapper" className="w-[260px] shrink-0 h-full print:hidden">
+                    <Sidebar />
+                </div>
             )}
 
-            {/* Sidebar: fixed overlay on mobile, sticky inline on desktop */}
-            {isSidebarOpen && (
-                <>
-                    {/* Mobile: fixed overlay */}
-                    <div className="fixed inset-y-0 left-0 w-[260px] max-w-[85vw] z-50 md:hidden print:hidden">
+            {isMobile && isSidebarOpen && (
+                <div className="fixed inset-0 z-50 flex">
+                    
+                    <div className="w-[260px] bg-[#0B0F1A]">
                         <Sidebar />
                     </div>
-                    {/* Desktop: inline flex item */}
-                    <div id="global-sidebar-wrapper" className="hidden md:block w-[260px] shrink-0 h-full print:hidden">
-                        <Sidebar />
-                    </div>
-                </>
+
+                    <div 
+                        className="flex-1 bg-black/50"
+                        onClick={() => setIsSidebarOpen(false)}
+                    />
+
+                </div>
             )}
 
             {/* Main column: flex-1 min-w-0, no absolute positioning, no margin hacks */}
