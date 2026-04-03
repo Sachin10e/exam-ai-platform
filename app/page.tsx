@@ -61,13 +61,13 @@ export default function DashboardPage() {
   const displayName = user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'Student';
 
   return (
-    <div className="max-w-[1400px] mx-auto p-6 flex flex-col gap-y-6">
+    <div className="max-w-[1400px] mx-auto p-4 md:p-6 flex flex-col gap-y-4 md:gap-y-6">
       {/* Hero Welcome */}
       <div className="flex flex-col gap-2">
-        <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-slate-100 to-slate-400 tracking-tight">
+        <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-slate-100 to-slate-400 tracking-tight">
           Welcome back, {displayName}.
         </h1>
-        <p className="text-slate-400 text-lg max-w-2xl">
+        <p className="text-slate-400 text-sm md:text-base max-w-2xl">
           You&apos;ve generated <strong>{recentSessions.length > 0 ? 'several advanced' : 'no completely'}</strong> study plans this week. Ready to conquer your next syllabus?
         </p>
       </div>
@@ -115,9 +115,9 @@ export default function DashboardPage() {
         </div>
 
       {/* Recent Sessions Grid */}
-      <div className="flex flex-col gap-y-6 pt-2">
+      <div className="flex flex-col gap-y-4 md:gap-y-6 pt-2">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-slate-200">Recent Archives</h2>
+          <h2 className="text-xl md:text-2xl font-bold text-slate-200">Recent Archives</h2>
           <button className="text-indigo-400 text-sm hover:text-indigo-300 font-medium transition-colors">
             View all history
           </button>

@@ -31,7 +31,7 @@ export default function ProgressChart() {
     const displayData = hasData ? data : mockData;
 
     return (
-        <div className="w-full h-full bg-slate-900/40 border border-slate-800 rounded-2xl p-5 flex flex-col gap-6 hover:-translate-y-1 hover:shadow-lg hover:shadow-indigo-500/10 transition-all duration-200 group">
+        <div className="w-full h-full bg-slate-900/40 border border-slate-800 rounded-2xl p-4 md:p-6 flex flex-col gap-6 hover:-translate-y-1 hover:shadow-lg hover:shadow-indigo-500/10 transition-all duration-200 group">
             <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
                     <Activity className="w-5 h-5 text-emerald-400" />
@@ -42,7 +42,7 @@ export default function ProgressChart() {
                 </div>
             </div>
 
-            <div className="h-56 min-h-[14rem] shrink-0 w-full pt-2">
+            <div className="w-full h-[220px] md:h-[300px] shrink-0 pt-2">
                 <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={displayData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                             <defs>

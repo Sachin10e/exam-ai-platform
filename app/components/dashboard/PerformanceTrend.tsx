@@ -34,7 +34,7 @@ export default function PerformanceTrend() {
     const isNeutral = displayTrend === 0;
 
     return (
-        <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 flex flex-col h-full hover:bg-slate-800/60 hover:-translate-y-1 hover:shadow-lg hover:shadow-indigo-500/10 transition-all duration-200 group">
+        <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 md:p-6 flex flex-col h-full hover:bg-slate-800/60 hover:-translate-y-1 hover:shadow-lg hover:shadow-indigo-500/10 transition-all duration-200 group">
             <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
@@ -53,7 +53,7 @@ export default function PerformanceTrend() {
                 )}
             </div>
 
-            <div className="h-56 min-h-[14rem] shrink-0 w-full mt-6">
+            <div className="w-full h-[220px] md:h-[300px] shrink-0 mt-6 md:mt-8">
                 <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={displayScores} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                             <defs>

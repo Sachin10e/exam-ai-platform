@@ -6,7 +6,7 @@ import { Flame } from 'lucide-react';
 const StudyStreakWidget = ({ streak = 0, bestStreak = 0, isLoading }: { streak?: number, bestStreak?: number, isLoading?: boolean }) => {
     return (
         <div 
-            className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between w-full h-full relative overflow-hidden group hover:-translate-y-1 transition-all duration-200 hover:shadow-lg hover:shadow-indigo-500/10 hover:bg-slate-800/60 hover:border-slate-700">
+            className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 md:p-6 flex flex-col justify-between w-full h-full relative overflow-hidden group hover:-translate-y-1 transition-all duration-200 hover:shadow-lg hover:shadow-indigo-500/10 hover:bg-slate-800/60 hover:border-slate-700">
             {/* Ambient Background Glow */}
             <div className="absolute -top-12 -right-12 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl group-hover:bg-amber-500/20 transition-all duration-500"></div>
 
