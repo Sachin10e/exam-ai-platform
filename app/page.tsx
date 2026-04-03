@@ -73,49 +73,41 @@ export default function DashboardPage() {
       </div>
 
       {/* Quick Actions / Metrics */}
-      <div className="grid grid-cols-12 gap-6">
-        <div className="col-span-12 md:col-span-6 lg:col-span-3">
-          <StatCard title="PDFs Uploaded" value={stats?.pdfCount ?? "-"} icon={FileText} color="indigo" isLoading={!stats} />
-        </div>
-        <div className="col-span-12 md:col-span-6 lg:col-span-3">
-          <StatCard title="Plans Generated" value={stats?.plansGenerated ?? "-"} icon={BrainCircuit} color="fuchsia" isLoading={!stats} />
-        </div>
-        <div className="col-span-12 md:col-span-6 lg:col-span-3">
-          <StatCard title="Mock Avg Score" value={stats ? `${stats.mockAverageScore}%` : "-"} icon={Activity} color="emerald" isLoading={!stats} />
-        </div>
-        <div className="col-span-12 md:col-span-6 lg:col-span-3">
-          <StudyStreakWidget streak={stats?.studyStreak ?? 0} bestStreak={stats?.bestStreak ?? 0} isLoading={!stats} />
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatCard title="PDFs Uploaded" value={stats?.pdfCount ?? "-"} icon={FileText} color="indigo" isLoading={!stats} />
+        <StatCard title="Plans Generated" value={stats?.plansGenerated ?? "-"} icon={BrainCircuit} color="fuchsia" isLoading={!stats} />
+        <StatCard title="Mock Avg Score" value={stats ? `${stats.mockAverageScore}%` : "-"} icon={Activity} color="emerald" isLoading={!stats} />
+        <StudyStreakWidget streak={stats?.studyStreak ?? 0} bestStreak={stats?.bestStreak ?? 0} isLoading={!stats} />
       </div>
 
       {/* Analytics & Insights 12-Column Grid */}
         <div className="grid grid-cols-12 gap-6">
           {/* Row 2 */}
-          <div className="col-span-12 lg:col-span-8 flex flex-col">
+          <div className="col-span-12 lg:col-span-8">
             <ErrorBoundary section="Progress Chart" compact>
               <ProgressChart />
             </ErrorBoundary>
           </div>
-          <div className="col-span-12 lg:col-span-4 flex flex-col">
+          <div className="col-span-12 lg:col-span-4">
             <ErrorBoundary section="Exam Countdown" compact>
               <ExamCountdown />
             </ErrorBoundary>
           </div>
 
           {/* Row 3 */}
-          <div className="col-span-12 lg:col-span-6 flex flex-col">
+          <div className="col-span-12 lg:col-span-6">
             <ErrorBoundary section="Performance Trends" compact>
               <PerformanceTrend />
             </ErrorBoundary>
           </div>
-          <div className="col-span-12 lg:col-span-6 flex flex-col">
+          <div className="col-span-12 lg:col-span-6">
             <ErrorBoundary section="Weak Topics" compact>
               <WeakTopics />
             </ErrorBoundary>
           </div>
 
           {/* Row 4 */}
-          <div className="col-span-12 flex flex-col">
+          <div className="col-span-12">
             <ErrorBoundary section="Exam Predictions" compact>
               <ExamPredictions />
             </ErrorBoundary>
