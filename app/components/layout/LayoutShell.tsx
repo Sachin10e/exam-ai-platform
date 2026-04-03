@@ -44,7 +44,7 @@ export default function LayoutShell({ user, children }: LayoutShellProps) {
             <div className="flex-1 min-w-0 flex flex-col overflow-hidden print:block print:overflow-visible print:h-auto">
                 <TopNav user={user} />
                 {/* Scrollable content: overflow-y-auto for all pages */}
-                <main className="flex-1 min-w-0 overflow-y-auto custom-scrollbar print:overflow-visible print:h-auto print:block">
+                <main className="flex-1 min-w-0 overflow-y-auto px-4 md:px-6 lg:px-8 custom-scrollbar print:overflow-visible print:h-auto print:block">
                     {children}
                 </main>
             </div>
