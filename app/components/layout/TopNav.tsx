@@ -8,6 +8,7 @@ import PomodoroTimer from '../study/PomodoroTimer';
 import UserMenu from '../auth/UserMenu';
 import ThemeToggle from './ThemeToggle';
 import { useSidebarStore } from '../../store/sidebar';
+import { logStudyEvent } from '@/app/actions/analytics';
 
 const QUICK_ACTIONS = [
     { id: 'start', label: 'Start Study Session', icon: BookOpen, href: '/arena' },
@@ -44,7 +45,7 @@ export default function TopNav({ user }: TopNavProps) {
     return (
         <div className="sticky top-0 z-40 w-full flex flex-col print:hidden transition-transform duration-300">
 
-            <header id="global-topnav" className="h-[68px] md:h-16 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-3xl flex items-center justify-between px-3 md:px-6 w-full max-w-full overflow-x-hidden min-w-0">
+            <header id="global-topnav" className="h-[68px] md:h-16 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-3xl flex items-center justify-between px-3 md:px-6 w-full max-w-full min-w-0 relative">
                 <div className="flex items-center flex-1 max-w-md gap-2 md:gap-3 min-w-0">
                 <button 
                   onClick={toggleSidebar}
@@ -127,7 +128,7 @@ export default function TopNav({ user }: TopNavProps) {
                     </button>
                     {isTimerOpen && (
                         <div className="fixed right-4 top-16 mt-2 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
-                            <PomodoroTimer />
+                            <PomodoroTimer onSessionComplete={(mins) => logStudyEvent({ event_type: 'study_session', duration: mins })} />
                         </div>
                     )}
                 </div>

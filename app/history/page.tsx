@@ -5,34 +5,35 @@ import Link from 'next/link';
 import { History, BookOpen, Clock, Search, Tag, TrendingUp } from 'lucide-react';
 import { getSessions, StudySessionMeta } from '../actions/sessions';
 
-const getTagsForSession = (title: string, id: string) => {
-    const subjects = ['Computer Science', 'Data Structures', 'Machine Learning', 'Physics', 'Mathematics', 'Software Eng'];
-    const examTypes = ['Mid-Term', 'Final Exam', 'Quiz', 'Assignment', 'Cram Session'];
-    const difficulties = ['Beginner', 'Intermediate', 'Advanced'];
+const getTagsForSession = (session: StudySessionMeta) => {
+    let examType: string = session.metadata?.examType === 'Mid' && session.metadata?.midType 
+        ? String(session.metadata.midType)
+        : session.metadata?.examType ? String(session.metadata.examType) : 'General';
 
-    // Deterministic hash based on UUID string to ensure stability across renders
-    let hash = 0;
-    const safeId = id || 'fallback-id';
-    for (let i = 0; i < safeId.length; i++) {
-        hash = safeId.charCodeAt(i) + ((hash << 5) - hash);
+    let subject = session.title || 'General';
+    if (subject.includes(':')) {
+        subject = subject.split(':')[0].trim();
+    } else if (subject.includes('(')) {
+        subject = subject.split('(')[0].trim();
     }
-    hash = Math.abs(hash);
 
-    let subject = subjects[hash % subjects.length];
+    const urgency = session.metadata?.urgency;
+    let difficulty = 'Standard';
+    let difficultyColor = 'text-amber-400 bg-amber-400/10 border-amber-400/20';
 
-    // Slight semantic override for immersion
-    const lower = title.toLowerCase();
-    if (lower.includes('database') || lower.includes('sql')) subject = 'Databases';
-    if (lower.includes('network')) subject = 'Networks';
-    if (lower.includes('algo')) subject = 'Algorithms';
+    if (urgency === 'Cram') {
+        difficulty = 'Quick Prep';
+        difficultyColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
+    } else if (urgency === 'Deep') {
+        difficulty = 'Deep Study';
+        difficultyColor = 'text-rose-400 bg-rose-400/10 border-rose-400/20';
+    }
 
     return {
         subject,
-        examType: examTypes[(hash >> 2) % examTypes.length],
-        difficulty: difficulties[(hash >> 4) % difficulties.length],
-        difficultyColor: (hash >> 4) % difficulties.length === 0 ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' :
-            (hash >> 4) % difficulties.length === 1 ? 'text-amber-400 bg-amber-400/10 border-amber-400/20' :
-                'text-rose-400 bg-rose-400/10 border-rose-400/20'
+        examType,
+        difficulty,
+        difficultyColor
     };
 };
 
@@ -47,12 +48,12 @@ export default function HistoryPage() {
 
     // Extract unique virtual metadata for dropdowns
     const availableSubjects = useMemo(() => {
-        const subs = new Set(sessions.map(s => getTagsForSession(s.title, s.id).subject));
+        const subs = new Set(sessions.map(s => getTagsForSession(s).subject));
         return ['All', ...Array.from(subs)];
     }, [sessions]);
 
     const availableExamTypes = useMemo(() => {
-        const types = new Set(sessions.map(s => getTagsForSession(s.title, s.id).examType));
+        const types = new Set(sessions.map(s => getTagsForSession(s).examType));
         return ['All', ...Array.from(types)];
     }, [sessions]);
 
@@ -65,11 +66,11 @@ export default function HistoryPage() {
         }
 
         if (filterSubject !== 'All') {
-            result = result.filter(s => getTagsForSession(s.title, s.id).subject === filterSubject);
+            result = result.filter(s => getTagsForSession(s).subject === filterSubject);
         }
 
         if (filterExamType !== 'All') {
-            result = result.filter(s => getTagsForSession(s.title, s.id).examType === filterExamType);
+            result = result.filter(s => getTagsForSession(s).examType === filterExamType);
         }
 
         if (sortBy === 'Newest') {
@@ -180,7 +181,7 @@ export default function HistoryPage() {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {processedSessions.map((session, idx) => {
-                        const tags = getTagsForSession(session.title, session.id);
+                        const tags = getTagsForSession(session);
                         return (
                             <Link href={`/chat?session=${session.id}`} key={`session-${session.id}-${idx}`} className="bg-slate-900/60 backdrop-blur-md border border-slate-800/80 hover:bg-slate-800/90 hover:border-indigo-500/50 transition-all rounded-3xl p-6 flex flex-col justify-between group cursor-pointer hover:-translate-y-1.5 shadow-lg hover:shadow-[0_10px_30px_rgba(99,102,241,0.1)]">
                                 <div className="flex justify-between items-start mb-5">

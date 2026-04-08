@@ -9,6 +9,7 @@ import 'katex/dist/katex.min.css';
 import clsx from 'clsx';
 import { getSessionById, getSessions, StudySessionMeta } from '../actions/sessions'
 import { AIResponse } from '../types';
+import { useToast } from '../components/ui/Toast';
 
 const SUGGESTED_ACTIONS = [
     { label: "Explain Simply", prompt: "Explain this topic in simple terms with examples.", icon: "💡" },
@@ -24,6 +25,10 @@ export default function ChatPage() {
     ]);
     const [chatInput, setChatInput] = useState('');
     const [isTyping, setIsTyping] = useState(false);
+    const [isListening, setIsListening] = useState(false);
+    const [speechSupported, setSpeechSupported] = useState(false);
+    const speechRecognitionRef = useRef<any>(null);
+    const { toast } = useToast();
     const endOfMessagesRef = useRef<HTMLDivElement>(null);
 
     const [sessions, setSessions] = useState<StudySessionMeta[]>([]);
@@ -72,6 +77,48 @@ export default function ChatPage() {
             }
         });
     }, []);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+            if (SpeechRecognition) {
+                setSpeechSupported(true)
+                const recognition = new SpeechRecognition()
+                recognition.continuous = false
+                recognition.interimResults = false
+                recognition.lang = 'en-US'
+                recognition.onresult = (event: any) => {
+                    const transcript = event.results[0][0].transcript
+                    setChatInput((prev) => prev ? prev + ' ' + transcript : transcript)
+                    setIsListening(false)
+                }
+                recognition.onerror = () => {
+                    setIsListening(false)
+                    toast('Voice input failed. Please try again.', 'error')
+                }
+                recognition.onend = () => {
+                    setIsListening(false)
+                }
+                speechRecognitionRef.current = recognition
+            }
+        }
+    }, [])
+
+    const toggleVoiceInput = () => {
+        if (!speechRecognitionRef.current) return
+        if (isListening) {
+            speechRecognitionRef.current.stop()
+            setIsListening(false)
+        } else {
+            try {
+                speechRecognitionRef.current.start()
+                setIsListening(true)
+            } catch (err) {
+                toast('Could not start voice input. Please try again.', 'error')
+                setIsListening(false)
+            }
+        }
+    }
 
     // Phase 2: Save continuous stream state
     useEffect(() => {
@@ -257,8 +304,29 @@ export default function ChatPage() {
                             onChange={(e) => setChatInput(e.target.value)}
                             placeholder={activeSubjectId ? "Ask a question about the active syllabus..." : "Ask a general question..."}
                             disabled={isTyping}
-                            className="w-full pl-6 pr-16 py-4 bg-slate-900 border border-slate-700 rounded-2xl focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none text-[0.95rem] text-slate-100 transition-all placeholder:text-slate-500 shadow-inner"
+                            className="w-full pl-6 pr-28 py-4 bg-slate-900 border border-slate-700 rounded-2xl focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none text-[0.95rem] text-slate-100 transition-all placeholder:text-slate-500 shadow-inner"
                         />
+                        {speechSupported && (
+                          <button
+                            type="button"
+                            onClick={toggleVoiceInput}
+                            disabled={isTyping}
+                            title={isListening ? 'Stop listening' : 'Speak your question'}
+                            className={clsx(
+                              'absolute right-[3.25rem] shrink-0 w-10 h-10 flex items-center justify-center rounded-xl transition-all',
+                              isListening
+                                ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 animate-pulse'
+                                : 'bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-700 hover:border-slate-600'
+                            )}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                              <line x1="12" y1="19" x2="12" y2="23"/>
+                              <line x1="8" y1="23" x2="16" y2="23"/>
+                            </svg>
+                          </button>
+                        )}
                         <button
                             type="submit"
                             disabled={!chatInput.trim() || isTyping}

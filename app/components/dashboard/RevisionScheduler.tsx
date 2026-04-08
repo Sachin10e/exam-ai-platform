@@ -1,16 +1,28 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CalendarCheck, CheckCircle2, Circle } from 'lucide-react';
 
-const initialTasks = [
+type Task = { id: number; text: string; completed: boolean; };
+
+const initialTasks: Task[] = [
     { id: 1, text: 'Unit 2: Deadlocks', completed: false },
     { id: 2, text: 'Flashcards: Database Keys', completed: false },
     { id: 3, text: 'Mock Test: Unit 3', completed: false }
 ];
 
 export default function RevisionScheduler() {
-    const [tasks, setTasks] = useState(initialTasks);
+    const [tasks, setTasks] = useState<Task[]>(() => {
+        if (typeof window === 'undefined') return initialTasks;
+        try {
+            const saved = localStorage.getItem('revision_tasks');
+            return saved ? JSON.parse(saved) : initialTasks;
+        } catch { return initialTasks; }
+    });
+
+    useEffect(() => {
+        localStorage.setItem('revision_tasks', JSON.stringify(tasks));
+    }, [tasks]);
 
     const toggleTask = (id: number) => {
         setTasks(tasks.map(t =>
@@ -77,6 +89,16 @@ export default function RevisionScheduler() {
                     </button>
                 ))}
             </div>
+            <button 
+                onClick={() => {
+                    setTasks(initialTasks);
+                    localStorage.removeItem('revision_tasks');
+                }}
+                className="text-xs text-slate-500 hover:text-slate-400 mt-4 self-end transition-colors"
+                title="Reset to default tasks"
+            >
+                Reset
+            </button>
         </div>
     );
 }

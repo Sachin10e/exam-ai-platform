@@ -17,15 +17,78 @@ export type ProgressMetrics = {
 }
 
 export async function getProgressMetrics(): Promise<ProgressMetrics> {
-    // Simulated API delay
-    await new Promise(resolve => setTimeout(resolve, 300));
+    const defaultMetrics: ProgressMetrics = {
+        studyStreak: 0,
+        weakTopics: [],
+        progressPercentage: 0,
+        totalStudyHours: 0,
+        mockExamAvg: 0
+    };
 
-    return {
-        studyStreak: 12,
-        weakTopics: ['Thermodynamics', 'Data Structures', 'Microeconomics'],
-        progressPercentage: 68,
-        totalStudyHours: 42.5,
-        mockExamAvg: 84
+    try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+            return defaultMetrics;
+        }
+
+        // a) For totalStudyHours
+        const { data: durationData } = await supabase
+            .from('study_events')
+            .select('duration')
+            .eq('user_id', user.id)
+            .eq('event_type', 'study_session');
+            
+        let totalStudyHours = 0;
+        if (durationData) {
+            const totalMinutes = durationData.reduce((sum, row) => sum + (row.duration || 0), 0);
+            totalStudyHours = parseFloat((totalMinutes / 60).toFixed(1));
+        }
+
+        // b) For mockExamAvg
+        const { data: scoreData } = await supabase
+            .from('study_events')
+            .select('score')
+            .eq('user_id', user.id)
+            .eq('event_type', 'mock_test');
+            
+        let mockExamAvg = 0;
+        if (scoreData && scoreData.length > 0) {
+            const validScores = scoreData.filter(row => typeof row.score === 'number');
+            if (validScores.length > 0) {
+                const totalScore = validScores.reduce((sum, row) => sum + (row.score || 0), 0);
+                mockExamAvg = Math.round(totalScore / validScores.length);
+            }
+        }
+
+        // c) For studyStreak
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        
+        const { data: streakData } = await supabase
+            .from('study_events')
+            .select('created_at')
+            .eq('user_id', user.id)
+            .eq('event_type', 'study_session')
+            .gte('created_at', sevenDaysAgo.toISOString());
+
+        let studyStreak = 0;
+        if (streakData) {
+            const uniqueDates = new Set(streakData.map(row => row.created_at.split('T')[0]));
+            studyStreak = uniqueDates.size;
+        }
+
+        return {
+            studyStreak,
+            weakTopics: [],
+            progressPercentage: 0,
+            totalStudyHours,
+            mockExamAvg
+        };
+    } catch (error) {
+        console.error('Error fetching progress metrics:', error);
+        return defaultMetrics;
     }
 }
 

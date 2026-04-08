@@ -4,7 +4,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { uploadPdfAction } from '../actions/upload'
 import { createSubjectAction } from '../actions/subjects'
-import { Download, FileText, Send, Loader2, Target, Briefcase, Zap, BrainCircuit, Sparkles, ChevronFirst, PenTool, LayoutTemplate, Clock4, FlaskConical, LayoutDashboard, History, Settings, Settings2, LogOut, Search, CheckCircle2, Copy, Bookmark, MoreVertical, X, Share2, Printer, ListTodo, GraduationCap, CheckCircle, UploadCloud, File as FileIcon, ChevronRight, ArrowUp, ArrowDown, PanelLeftClose, PanelLeftOpen, PlusCircle, Clock, Circle, BarChart3, AlignLeft, RefreshCcw, Lock, ArrowRight, BookOpen, Layers, Maximize2 } from 'lucide-react'
+import { Download, FileText, Send, Loader2, Target, Briefcase, Zap, BrainCircuit, Sparkles, ChevronFirst, PenTool, LayoutTemplate, Clock4, FlaskConical, LayoutDashboard, History, Settings, Settings2, LogOut, Search, CheckCircle2, Copy, MoreVertical, X, Share2, Printer, ListTodo, GraduationCap, CheckCircle, UploadCloud, File as FileIcon, ChevronRight, ArrowUp, ArrowDown, PanelLeftClose, PanelLeftOpen, PlusCircle, Clock, Circle, BarChart3, AlignLeft, RefreshCcw, Lock, ArrowRight, BookOpen, Layers, Maximize2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import clsx from 'clsx'
 const ReactMarkdown = dynamic(() => import('react-markdown'), { 
@@ -29,13 +29,14 @@ import dynamic from 'next/dynamic'
 import type { ExamQuestion } from '../components/study/MockExamModal'
 const MockExamModal = dynamic(() => import('../components/study/MockExamModal'), { ssr: false })
 const MermaidDiagram = dynamic(() => import('../components/ai/MermaidDiagram'), { ssr: false })
-import { saveSession, getSessions, getSessionById, StudySessionMeta } from '../actions/sessions'
+import { saveSession, getSessions, getSessionById, toggleSessionPublic, StudySessionMeta } from '../actions/sessions'
 import { logStudyEvent } from '../actions/analytics'
 import { getUnitProgress } from '@/lib/analytics/unitProgress'
 import PomodoroTimer from '../components/study/PomodoroTimer'
 import { AIResponse } from '../types'
 import { getLastSessionId, setLastSessionId } from '../actions/preferences'
 import { useToast } from '../components/ui/Toast'
+import confetti from 'canvas-confetti'
 
 // Local binding obsolete, using AIResponse globally
 
@@ -208,6 +209,11 @@ export default function ExamDashboard() {
   const [hasGenerated, setHasGenerated] = useState(false)
   const [chatInput, setChatInput] = useState('')
   const [isChatLoading, setIsChatLoading] = useState(false)
+  const [isSharing, setIsSharing] = useState(false)
+  const [isSessionPublic, setIsSessionPublic] = useState(false)
+  const [isListening, setIsListening] = useState(false)
+  const [speechSupported, setSpeechSupported] = useState(false)
+  const speechRecognitionRef = useRef<any>(null)
   const [targetUnit, setTargetUnit] = useState<number>(1)
   const [isHandwritten, setIsHandwritten] = useState(true)
   const [showBackToTop, setShowBackToTop] = useState(false)
@@ -217,6 +223,7 @@ export default function ExamDashboard() {
   const lastScrollTopRef = useRef<number>(0)
   const endOfMessagesRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Flashcards State
   const [showFlashcards, setShowFlashcards] = useState(false)
@@ -238,6 +245,15 @@ export default function ExamDashboard() {
   const [isFocusMode, setIsFocusMode] = useState(false)
   const [unitProgress, setUnitProgress] = useState(0)
   const [isTimerOpen, setIsTimerOpen] = useState(false)
+
+  const triggerConfetti = () => {
+    confetti({
+      particleCount: 120,
+      spread: 80,
+      origin: { y: 0.6 },
+      colors: ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#ffffff'],
+    })
+  }
 
   // Calculate reading time for current unit
   const calculateReadingTime = () => {
@@ -385,14 +401,23 @@ export default function ExamDashboard() {
   // 3. Save state gracefully continuously into localStorage preventing reload resets
   useEffect(() => {
     if (!isHydrated) return; // Wait until initial load finishes to avoid overwriting with empties
-    const stateToSave = {
-       subjectId, urgency, examType, midType, answerLength, targetGrade, explanationStyle,
-       targetUnit, unitProgress, hasGenerated, currentSessionId,
-       isSidebarOpen,
-       messages // Save messages locally as fallback in case DB hook fails or hasn't committed
+    
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    
+    saveTimeoutRef.current = setTimeout(() => {
+      const stateToSave = {
+         subjectId, urgency, examType, midType, answerLength, targetGrade, explanationStyle,
+         targetUnit, unitProgress, hasGenerated, currentSessionId,
+         isSidebarOpen
+         // messages intentionally omitted to avoid massive payloads and local storage exhaustion
+      };
+      localStorage.setItem('arena_active_state', JSON.stringify(stateToSave));
+    }, 1500);
+
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     };
-    localStorage.setItem('arena_active_state', JSON.stringify(stateToSave));
-  }, [subjectId, urgency, examType, midType, answerLength, targetGrade, explanationStyle, targetUnit, unitProgress, hasGenerated, currentSessionId, isSidebarOpen, messages, isHydrated]);
+  }, [subjectId, urgency, examType, midType, answerLength, targetGrade, explanationStyle, targetUnit, unitProgress, hasGenerated, currentSessionId, isSidebarOpen, isHydrated]);
   // =====================================================
 
   useEffect(() => {
@@ -417,17 +442,94 @@ export default function ExamDashboard() {
     return () => clearInterval(interval)
   }, [isGenerating])
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+      if (SpeechRecognition) {
+        setSpeechSupported(true)
+        const recognition = new SpeechRecognition()
+        recognition.continuous = false
+        recognition.interimResults = false
+        recognition.lang = 'en-US'
+        recognition.onresult = (event: any) => {
+          const transcript = event.results[0][0].transcript
+          setChatInput((prev) => prev ? prev + ' ' + transcript : transcript)
+          setIsListening(false)
+        }
+        recognition.onerror = () => {
+          setIsListening(false)
+          toast('Voice input failed. Please try again.', 'error')
+        }
+        recognition.onend = () => {
+          setIsListening(false)
+        }
+        speechRecognitionRef.current = recognition
+      }
+    }
+  }, [])
+
+  const toggleVoiceInput = () => {
+    if (!speechRecognitionRef.current) return
+    if (isListening) {
+      speechRecognitionRef.current.stop()
+      setIsListening(false)
+    } else {
+      try {
+        speechRecognitionRef.current.start()
+        setIsListening(true)
+      } catch (err) {
+        toast('Could not start voice input. Please try again.', 'error')
+        setIsListening(false)
+      }
+    }
+  }
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.length) return
     const selectedFiles = Array.from(e.target.files)
-
-    // Prevent strictly duplicate files from being queued twice
-    setFiles((prev) => {
-      const newFiles = selectedFiles.filter(f => !prev.some(p => p.name === f.name))
-      return [...prev, ...newFiles]
-    })
-
     if (fileInputRef.current) fileInputRef.current.value = ''
+
+    const MAX_FILE_SIZE = 15 * 1024 * 1024
+    const MAX_FILES = 5
+    const ALLOWED_TYPES = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain',
+      'image/jpeg',
+      'image/png',
+      'image/jpg',
+    ]
+    const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.txt', '.md', '.jpg', '.jpeg', '.png']
+
+    const validFiles: File[] = []
+
+    for (const file of selectedFiles) {
+      const ext = '.' + file.name.split('.').pop()?.toLowerCase()
+      const isValidType = ALLOWED_TYPES.includes(file.type) || ALLOWED_EXTENSIONS.includes(ext)
+      if (!isValidType) {
+        toast(`Unsupported file type: ${file.name}. Use PDF, DOCX, TXT, or image files.`, 'error')
+        continue
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        toast(`${file.name} is too large. Maximum file size is 15MB.`, 'error')
+        continue
+      }
+      validFiles.push(file)
+    }
+
+    if (validFiles.length === 0) return
+
+    setFiles((prev) => {
+      const currentCount = prev.length
+      const newUnique = validFiles.filter(f => !prev.some(p => p.name === f.name))
+      if (currentCount + newUnique.length > MAX_FILES) {
+        toast(`Maximum ${MAX_FILES} files allowed. You already have ${currentCount} file(s) queued.`, 'error')
+        const remaining = MAX_FILES - currentCount
+        if (remaining <= 0) return prev
+        return [...prev, ...newUnique.slice(0, remaining)]
+      }
+      return [...prev, ...newUnique]
+    })
   }
 
   const removeFile = (nameToRemove: string) => {
@@ -1101,12 +1203,43 @@ export default function ExamDashboard() {
                 >
                   <Download className="w-4 h-4 text-amber-400" />
                 </button>
+
                 <button
-                  onClick={() => {}}
-                  className="p-2 bg-slate-800/80 hover:bg-slate-700 rounded-lg text-slate-300 border border-slate-700 transition-colors shadow-sm mr-2"
-                  title="Bookmark"
+                  onClick={async () => {
+                    if (!currentSessionId) {
+                      toast('Save your session first by generating a plan.', 'error')
+                      return
+                    }
+                    setIsSharing(true)
+                    const newPublicState = !isSessionPublic
+                    const result = await toggleSessionPublic(currentSessionId, newPublicState)
+                    if (result.success) {
+                      setIsSessionPublic(newPublicState)
+                      if (newPublicState) {
+                        const shareUrl = `${window.location.origin}/share/${currentSessionId}`
+                        await navigator.clipboard.writeText(shareUrl).catch(() => {})
+                        toast('Share link copied to clipboard!', 'success')
+                      } else {
+                        toast('Study plan is now private.', 'info')
+                      }
+                    } else {
+                      toast('Failed to update sharing settings.', 'error')
+                    }
+                    setIsSharing(false)
+                  }}
+                  disabled={isSharing || !currentSessionId}
+                  className={clsx(
+                    'p-2 rounded-lg text-slate-300 border transition-colors shadow-sm',
+                    isSessionPublic
+                      ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-400'
+                      : 'bg-slate-800/80 hover:bg-slate-700 border-slate-700'
+                  )}
+                  title={isSessionPublic ? 'Public — click to make private' : 'Share this study plan'}
                 >
-                  <Bookmark className="w-4 h-4 text-fuchsia-400" />
+                  {isSharing
+                    ? <span className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin block" />
+                    : <Share2 className="w-4 h-4" />
+                  }
                 </button>
 
                 <button
@@ -1135,7 +1268,21 @@ export default function ExamDashboard() {
                   </button>
                 )}
 
-                {/* Local Timer Popover for Arena - Removed in favor of floating widget */}
+                <button
+                  onClick={() => setIsTimerOpen(!isTimerOpen)}
+                  className={clsx(
+                    "p-2 rounded-lg border transition-colors shadow-sm",
+                    isTimerOpen ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" : "bg-slate-800/80 hover:bg-slate-700 text-slate-300 border-slate-700"
+                  )}
+                  title="Study Timer"
+                >
+                  <Clock className="w-4 h-4" />
+                </button>
+                {isTimerOpen && (
+                  <div className="absolute right-4 md:right-6 top-16 md:top-20 z-50 origin-top-right animate-in fade-in slide-in-from-top-4 duration-300">
+                    <PomodoroTimer onSessionComplete={(mins) => logStudyEvent({ event_type: 'study_session', duration: mins, subject_id: subjectId, unit_id: targetUnit.toString() })} />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1238,6 +1385,7 @@ export default function ExamDashboard() {
                         {!(examType === 'Mid' && midType === 'Mid 1' && targetUnit >= 3) ? (
                             <button
                                 onClick={async () => {
+                                    triggerConfetti()
                                     await logStudyEvent({ event_type: 'unit_completed', subject_id: subjectId, unit_id: targetUnit.toString() });
                                     setUnitProgress(100);
                                     generateStudyPlan(true);
@@ -1250,6 +1398,13 @@ export default function ExamDashboard() {
                         ): (
                             <button
                                 onClick={async () => {
+                                    triggerConfetti()
+                                    confetti({
+                                      particleCount: 200,
+                                      spread: 120,
+                                      origin: { y: 0.5 },
+                                      colors: ['#10b981', '#34d399', '#6ee7b7', '#6366f1', '#ffffff'],
+                                    })
                                     await logStudyEvent({ event_type: 'unit_completed', subject_id: subjectId, unit_id: targetUnit.toString() });
                                     setUnitProgress(100);
                                 }}
@@ -1320,6 +1475,27 @@ export default function ExamDashboard() {
                       disabled={isChatLoading || isGenerating}
                       className="flex-1 min-w-0 bg-transparent outline-none text-sm md:text-base text-slate-100 placeholder:text-slate-500 font-sans py-1.5"
                     />
+                    {speechSupported && (
+                      <button
+                        type="button"
+                        onClick={toggleVoiceInput}
+                        disabled={isGenerating}
+                        title={isListening ? 'Stop listening' : 'Speak your question'}
+                        className={clsx(
+                          'shrink-0 w-10 h-10 flex items-center justify-center rounded-xl transition-all',
+                          isListening
+                            ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 animate-pulse'
+                            : 'bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-700 hover:border-slate-600'
+                        )}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                          <line x1="12" y1="19" x2="12" y2="23"/>
+                          <line x1="8" y1="23" x2="16" y2="23"/>
+                        </svg>
+                      </button>
+                    )}
                     <button
                       type="submit"
                       disabled={!chatInput.trim() || isChatLoading || isGenerating}

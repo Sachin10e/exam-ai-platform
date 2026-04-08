@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Play, Pause, RotateCcw, Coffee, BookOpen, Clock, Target, Maximize2, Minimize2 } from 'lucide-react';
 import clsx from 'clsx';
 
-export default function PomodoroTimer({ progress = 0 }: { progress?: number }) {
+export default function PomodoroTimer({ progress = 0, onSessionComplete }: { progress?: number, onSessionComplete?: (durationMinutes: number) => void }) {
     const [timeLeft, setTimeLeft] = useState(25 * 60);
     const [isActive, setIsActive] = useState(false);
     const [mode, setMode] = useState<'Study' | 'Break'>('Study');
@@ -16,6 +16,9 @@ export default function PomodoroTimer({ progress = 0 }: { progress?: number }) {
                 setTimeLeft((time) => {
                     if (time <= 1) {
                         setIsActive(false);
+                        if (mode === 'Study' && onSessionComplete) {
+                            setTimeout(() => onSessionComplete(25), 0);
+                        }
                         setMode(prev => prev === 'Study' ? 'Break' : 'Study');
                         return mode === 'Study' ? 5 * 60 : 25 * 60;
                     }
@@ -24,7 +27,7 @@ export default function PomodoroTimer({ progress = 0 }: { progress?: number }) {
             }, 1000);
         }
         return () => { if (interval) clearInterval(interval); };
-    }, [isActive, mode]);
+    }, [isActive, mode, onSessionComplete]);
 
     const toggleTimer = () => setIsActive(!isActive);
     const resetTimer = () => {

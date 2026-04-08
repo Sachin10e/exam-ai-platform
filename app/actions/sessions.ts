@@ -111,3 +111,39 @@ export async function getSessionById(id: string): Promise<StudySession | null> {
         return null;
     }
 }
+
+export async function toggleSessionPublic(id: string, isPublic: boolean): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'Not authenticated' }
+
+    const { error } = await supabase
+      .from('study_sessions')
+      .update({ is_public: isPublic })
+      .eq('id', id)
+      .eq('user_id', user.id)
+
+    if (error) return { success: false, error: error.message }
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: 'Failed to update session' }
+  }
+}
+
+export async function getPublicSession(id: string): Promise<StudySession | null> {
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('study_sessions')
+      .select('*')
+      .eq('id', id)
+      .eq('is_public', true)
+      .single()
+
+    if (error || !data) return null
+    return data
+  } catch {
+    return null
+  }
+}

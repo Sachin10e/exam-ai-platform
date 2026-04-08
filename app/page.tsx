@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { type User as SupabaseUser } from '@supabase/supabase-js';
 import Link from 'next/link';
 import { FileText, BookOpen, Calculator, BrainCircuit, Activity, Clock, ChevronRight } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
@@ -29,11 +30,16 @@ const ProgressChart = dynamic(() => import('./components/dashboard/ProgressChart
   loading: () => <div className="w-full bg-slate-900/30 border border-slate-800/50 rounded-3xl p-6 h-80 animate-pulse flex items-center justify-center text-slate-500 font-medium">Loading metrics...</div>
 });
 
+const PredictedScore = dynamic(() => import('./components/dashboard/PredictedScore'), {
+  ssr: false,
+  loading: () => <div className="w-full h-[280px] bg-slate-900/40 border border-slate-800/50 rounded-2xl animate-pulse"></div>
+});
+
 export default function DashboardPage() {
   const [recentSessions, setRecentSessions] = useState<StudySessionMeta[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -107,7 +113,12 @@ export default function DashboardPage() {
           </div>
 
           {/* Row 4 */}
-          <div className="col-span-12">
+          <div className="col-span-12 lg:col-span-4">
+            <ErrorBoundary section="Predicted Score" compact>
+              <PredictedScore />
+            </ErrorBoundary>
+          </div>
+          <div className="col-span-12 lg:col-span-8">
             <ErrorBoundary section="Exam Predictions" compact>
               <ExamPredictions />
             </ErrorBoundary>
@@ -126,15 +137,58 @@ export default function DashboardPage() {
         {isLoading ? (
           <div className="text-slate-500 text-sm animate-pulse">Loading recent activity...</div>
         ) : recentSessions.length === 0 ? (
-          <div className="card-standard border-dashed p-12 min-h-[50vh] flex flex-col flex-1 items-center justify-center text-center">
-            <div className="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center mb-4">
-              <BookOpen className="w-8 h-8 text-slate-500" />
+          <div className="flex flex-col gap-6 py-6">
+            <div className="text-center mb-2">
+              <div className="w-16 h-16 bg-indigo-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-indigo-500/20">
+                <BookOpen className="w-8 h-8 text-indigo-400" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-200 mb-2">Welcome to ExamArena</h3>
+              <p className="text-slate-400 text-sm max-w-sm mx-auto">Get started in 3 simple steps. Your first AI study plan takes less than 60 seconds.</p>
             </div>
-            <h3 className="text-xl font-bold text-slate-300 mb-2">No active study plans</h3>
-            <p className="text-slate-500 max-w-md mx-auto mb-6">You haven&apos;t generated any study paths yet. Upload a syllabus or textbook to begin structuring your knowledge.</p>
-            <Link href="/arena" className="btn-primary">
-              Enter the Arena
-            </Link>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mx-auto w-full">
+              <Link href="/arena" className="group flex flex-col gap-3 p-5 bg-slate-900/60 border border-slate-800 hover:border-indigo-500/40 rounded-2xl transition-all hover:-translate-y-1">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-indigo-400" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full">Step 1</span>
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-200 mb-1">Upload your syllabus</h4>
+                  <p className="text-xs text-slate-500 leading-relaxed">Upload any PDF, DOCX, or image of your course material</p>
+                </div>
+                <span className="text-xs font-semibold text-indigo-400 group-hover:translate-x-1 transition-transform mt-auto">Start here →</span>
+              </Link>
+
+              <div className="flex flex-col gap-3 p-5 bg-slate-900/40 border border-slate-800/50 rounded-2xl opacity-70">
+                <div className="w-10 h-10 rounded-xl bg-fuchsia-500/10 border border-fuchsia-500/20 flex items-center justify-center">
+                  <BrainCircuit className="w-5 h-5 text-fuchsia-400" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-bold text-fuchsia-400 bg-fuchsia-500/10 px-2 py-0.5 rounded-full">Step 2</span>
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-200 mb-1">Generate your plan</h4>
+                  <p className="text-xs text-slate-500 leading-relaxed">AI creates unit-by-unit questions, answers, and MCQs</p>
+                </div>
+                <span className="text-xs text-slate-600 mt-auto">Unlocks after Step 1</span>
+              </div>
+
+              <div className="flex flex-col gap-3 p-5 bg-slate-900/40 border border-slate-800/50 rounded-2xl opacity-70">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                  <Calculator className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">Step 3</span>
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-200 mb-1">Test your knowledge</h4>
+                  <p className="text-xs text-slate-500 leading-relaxed">Take mock exams, review flashcards, track your score</p>
+                </div>
+                <span className="text-xs text-slate-600 mt-auto">Unlocks after Step 2</span>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-12 gap-6">

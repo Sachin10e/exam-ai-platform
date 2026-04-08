@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
 
@@ -33,6 +33,34 @@ export default function FlashcardDeck({ flashcards, onClose }: FlashcardDeckProp
             setCurrentIndex((prev) => Math.max(prev - 1, 0));
         }, 150);
     };
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'ArrowRight' || e.key === 'l') {
+                e.preventDefault()
+                if (currentIndex < flashcards.length - 1) {
+                    setIsFlipped(false)
+                    setTimeout(() => setCurrentIndex((prev) => Math.min(prev + 1, flashcards.length - 1)), 150)
+                }
+            }
+            if (e.key === 'ArrowLeft' || e.key === 'h') {
+                e.preventDefault()
+                if (currentIndex > 0) {
+                    setIsFlipped(false)
+                    setTimeout(() => setCurrentIndex((prev) => Math.max(prev - 1, 0)), 150)
+                }
+            }
+            if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                e.preventDefault()
+                setIsFlipped((prev) => !prev)
+            }
+            if (e.key === 'Escape') {
+                onClose()
+            }
+        }
+        window.addEventListener('keydown', handleKeyDown)
+        return () => window.removeEventListener('keydown', handleKeyDown)
+    }, [currentIndex, flashcards.length, onClose])
 
     if (!flashcards || flashcards.length === 0) {
         return null;
@@ -86,20 +114,21 @@ export default function FlashcardDeck({ flashcards, onClose }: FlashcardDeckProp
                 </div>
             </div>
 
-            {/* SRS Counters */}
-            <div className="w-full max-w-2xl flex justify-center gap-3 md:gap-6 mt-6 pointer-events-none z-10">
-                <div className="px-3 py-2 md:px-5 md:py-2.5 bg-slate-800/80 border border-slate-700/50 rounded-2xl flex items-center gap-2 shadow-lg backdrop-blur-md text-xs md:text-sm font-bold text-slate-300">
-                    <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.8)]"></div>
-                    New: <span className="text-slate-100">12</span>
-                </div>
-                <div className="px-3 py-2 md:px-5 md:py-2.5 bg-slate-800/80 border border-slate-700/50 rounded-2xl flex items-center gap-2 shadow-lg backdrop-blur-md text-xs md:text-sm font-bold text-slate-300">
-                    <div className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.8)]"></div>
-                    Review Due: <span className="text-slate-100">5</span>
-                </div>
-                <div className="px-3 py-2 md:px-5 md:py-2.5 bg-slate-800/80 border border-slate-700/50 rounded-2xl flex items-center gap-2 shadow-lg backdrop-blur-md text-xs md:text-sm font-bold text-slate-300">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"></div>
-                    Mastered: <span className="text-slate-100">38</span>
-                </div>
+            {/* Keyboard Hints */}
+            <div className="flex items-center justify-center gap-6 text-xs text-slate-600 mb-2 select-none">
+              <span className="flex items-center gap-1.5">
+                <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-500 font-mono text-[10px]">←</kbd>
+                <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-500 font-mono text-[10px]">→</kbd>
+                Navigate
+              </span>
+              <span className="flex items-center gap-1.5">
+                <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-500 font-mono text-[10px]">Space</kbd>
+                Flip
+              </span>
+              <span className="flex items-center gap-1.5">
+                <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-500 font-mono text-[10px]">Esc</kbd>
+                Exit
+              </span>
             </div>
 
             {/* Lateral Navigation & Card Container */}
