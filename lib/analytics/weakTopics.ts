@@ -1,10 +1,6 @@
 'use server';
 
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder';
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { createClient } from '@/utils/supabase/server';
 
 export interface WeakTopicDef {
     id: number;
@@ -16,17 +12,17 @@ export interface WeakTopicDef {
 
 export async function getWeakTopics(): Promise<WeakTopicDef[]> {
     try {
+        const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
 
-        let query = supabase
+        if (!user) return [];
+
+        const query = supabase
             .from('study_events')
             .select('unit_id, score')
             .eq('event_type', 'mock_test')
+            .eq('user_id', user.id)
             .not('score', 'is', null);
-
-        if (user?.id) {
-            query = query.eq('user_id', user.id);
-        }
 
         const { data, error } = await query;
         if (error || !data) return [];

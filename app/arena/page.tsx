@@ -24,10 +24,11 @@ import rehypeKatex from 'rehype-katex'
 import rehypeHighlight from 'rehype-highlight'
 import 'katex/dist/katex.min.css'
 import 'highlight.js/styles/github-dark.css'
-import FlashcardDeck, { Flashcard } from '../components/study/FlashcardDeck'
+import type { Flashcard } from '../components/study/FlashcardDeck'
 import dynamic from 'next/dynamic'
 import type { ExamQuestion } from '../components/study/MockExamModal'
 const MockExamModal = dynamic(() => import('../components/study/MockExamModal'), { ssr: false })
+const FlashcardDeck = dynamic(() => import('../components/study/FlashcardDeck'), { ssr: false })
 const MermaidDiagram = dynamic(() => import('../components/ai/MermaidDiagram'), { ssr: false })
 import { saveSession, getSessions, getSessionById, toggleSessionPublic, StudySessionMeta } from '../actions/sessions'
 import { logStudyEvent } from '../actions/analytics'
@@ -37,6 +38,7 @@ import { AIResponse } from '../types'
 import { getLastSessionId, setLastSessionId } from '../actions/preferences'
 import { useToast } from '../components/ui/Toast'
 import confetti from 'canvas-confetti'
+import { useSidebarStore } from '../store/sidebar'
 
 // Local binding obsolete, using AIResponse globally
 
@@ -191,7 +193,10 @@ export default function ExamDashboard() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Sidebar Toggle State
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const isSidebarOpen = useSidebarStore(state => state.isOpen)
+  const toggleSidebar = useSidebarStore(state => state.toggle)
+  const openSidebar = useSidebarStore(state => state.open)
+  const closeSidebar = useSidebarStore(state => state.close)
   const [guestContextText, setGuestContextText] = useState('')
 
   // Configuration State
@@ -265,7 +270,7 @@ export default function ExamDashboard() {
   // Close the configuration sidebar by default on small screens
   useEffect(() => {
     if (typeof window !== 'undefined' && window.innerWidth < 768) {
-      setIsSidebarOpen(false)
+      closeSidebar()
     }
   }, [])
 
@@ -374,7 +379,9 @@ export default function ExamDashboard() {
                if (saved.hasGenerated) setHasGenerated(saved.hasGenerated);
                if (saved.currentSessionId) setCurrentSessionId(saved.currentSessionId);
                if (saved.files) setFiles(saved.files); 
-               if (saved.isSidebarOpen !== undefined) setIsSidebarOpen(saved.isSidebarOpen);
+               if (saved.isSidebarOpen !== undefined) {
+                 saved.isSidebarOpen ? openSidebar() : closeSidebar();
+               }
 
                if (saved.currentSessionId) {
                  const sessionDetail = await getSessionById(saved.currentSessionId);
@@ -627,7 +634,7 @@ export default function ExamDashboard() {
         setMessages(prev => [...prev, { role: 'assistant', content: `\n\n---\n\n# 🚀 CONTINUING TO UNIT ${newTargetUnit}\n\n` }])
       }
       setHasGenerated(true)
-      setIsSidebarOpen(false)
+      closeSidebar()
 
       // Analytics Tracking
       logStudyEvent({ event_type: 'study_session', subject_id: activeSubjectId, unit_id: newTargetUnit.toString() }).then(() => {
@@ -882,7 +889,7 @@ export default function ExamDashboard() {
 
       {/* Mobile Configuration Overlay */}
       <div 
-         onClick={() => setIsSidebarOpen(false)}
+         onClick={closeSidebar}
          className={clsx(
            "fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden transition-opacity duration-300",
            isSidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none"
@@ -1170,7 +1177,7 @@ export default function ExamDashboard() {
             <div className="border-b border-slate-700/30 px-3 md:px-6 h-14 md:h-16 bg-slate-900/40 backdrop-blur-2xl sticky top-0 z-20 flex justify-between items-center shadow-sm relative print:hidden">
               <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
                 <button
-                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                  onClick={toggleSidebar}
                   className="p-1.5 md:p-2 bg-slate-800/80 hover:bg-slate-700 rounded-lg text-slate-300 border border-slate-700 transition-colors shadow-sm shrink-0"
                   title={isSidebarOpen && !isFocusMode ? "Close Configuration Sidebar" : "Open Configuration Sidebar"}
                 >
@@ -1247,7 +1254,7 @@ export default function ExamDashboard() {
                     const next = !isFocusMode;
                     setIsFocusMode(next);
                     // Focus mode → close sidebar for true full-screen
-                    if (next) setIsSidebarOpen(false);
+                    if (next) closeSidebar();
                   }}
                   className={clsx(
                     "flex items-center gap-2 px-3 py-1.5 font-bold rounded-xl border transition-all shadow-sm text-xs group flex-shrink-0",

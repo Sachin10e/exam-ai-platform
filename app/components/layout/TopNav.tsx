@@ -3,7 +3,6 @@
 import { Search, Bell, Sparkles, Clock, BookOpen, Target, FileText, Menu } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { type User as SupabaseUser } from '@supabase/supabase-js';
 import PomodoroTimer from '../study/PomodoroTimer';
 import UserMenu from '../auth/UserMenu';
 import ThemeToggle from './ThemeToggle';
@@ -18,15 +17,11 @@ const QUICK_ACTIONS = [
     { id: 'upload', label: 'Upload Syllabus', icon: FileText, href: '/arena' }
 ];
 
-interface TopNavProps {
-    user: SupabaseUser | null;
-}
-
-export default function TopNav({ user }: TopNavProps) {
+export default function TopNav() {
     const [isTimerOpen, setIsTimerOpen] = useState(false);
     const [isQuickActionsOpen, setIsQuickActionsOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const toggleSidebar = useSidebarStore(state => state.toggleSidebar);
+    const toggleSidebar = useSidebarStore(state => state.toggle);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -142,7 +137,7 @@ export default function TopNav({ user }: TopNavProps) {
                     <span className="absolute top-2 right-2.5 w-2 h-2 bg-rose-500 rounded-full"></span>
                 </Link>
                 <div className="ml-1 md:ml-2 flex items-center justify-center min-h-[44px] min-w-[44px]">
-                    <UserMenu initialUser={user} />
+                    <UserMenu />
                 </div>
             </div>
             </header>

@@ -1,10 +1,6 @@
 'use server';
 
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder';
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { createClient } from '@/utils/supabase/server';
 
 export interface ExamPrediction {
     id: number;
@@ -21,15 +17,17 @@ const STOP_WORDS = new Set([
 
 export async function getExamPredictions(): Promise<ExamPrediction[]> {
     try {
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
 
-        // 1. Fetch subjects explicitly for this user (or all if anonymous)
-        let subjectQuery = supabase.from('subjects').select('id');
-        if (user?.id && !userError) {
-            subjectQuery = subjectQuery.eq('user_id', user.id);
-        }
-        
-        const { data: subjects } = await subjectQuery;
+        if (!user) return [];
+
+        // 1. Fetch subjects explicitly for this user
+        const { data: subjects } = await supabase
+            .from('subjects')
+            .select('id')
+            .eq('user_id', user.id);
+
         const subjectIds = subjects?.map(s => s.id) || [];
 
         // 2. Fetch documents for these subjects

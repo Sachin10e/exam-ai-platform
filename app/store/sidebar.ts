@@ -1,13 +1,15 @@
 import { create } from 'zustand';
 
 interface SidebarState {
-    isSidebarOpen: boolean;
-    setIsSidebarOpen: (isOpen: boolean) => void;
-    toggleSidebar: () => void;
+    isOpen: boolean;
+    toggle: () => void;
+    open: () => void;
+    close: () => void;
 }
 
 export const useSidebarStore = create<SidebarState>((set) => ({
-    isSidebarOpen: true, // Default open on desktop
-    setIsSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
-    toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
+    isOpen: true, // Default open on desktop
+    toggle: () => set((state) => ({ isOpen: !state.isOpen })),
+    open: () => set({ isOpen: true }),
+    close: () => set({ isOpen: false }),
 }));

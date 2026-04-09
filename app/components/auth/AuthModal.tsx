@@ -56,7 +56,6 @@ export default function AuthModal({ isOpen, onClose, mode: initialMode }: AuthMo
     const handleAuth = async (e: React.FormEvent) => {
         e.preventDefault();
         
-        // Validate Environment variables
         if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
             toast('Supabase environment variables are missing.', 'error');
             return;
@@ -66,42 +65,39 @@ export default function AuthModal({ isOpen, onClose, mode: initialMode }: AuthMo
         setError('');
 
         try {
-            const authPromise = authMode === 'register' 
-                ? supabase.auth.signUp({
+            let response;
+            if (authMode === 'register') {
+                response = await supabase.auth.signUp({
                     email,
                     password,
                     options: { emailRedirectTo: window.location.origin }
-                })
-                : supabase.auth.signInWithPassword({
+                });
+            } else {
+                response = await supabase.auth.signInWithPassword({
                     email,
                     password
                 });
-
-            // 10 second timeout
-            const timeoutPromise = new Promise<{ error: Error }>((_, reject) => 
-                setTimeout(() => reject(new Error('Request timed out. Please try again.')), 10000)
-            );
-
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { error } = await Promise.race([authPromise, timeoutPromise]) as any;
-
-            if (error) {
-                toast(error.message || 'Authentication failed', 'error');
-                throw error;
             }
 
+            if (response.error) {
+                throw new Error(response.error.message);
+            }
+
+            // On success: update user state, show toast, and close modal
             if (authMode === 'register') {
                 toast('Registration successful! Please check your email to verify.', 'success');
-                onClose();
             } else {
                 toast('Successfully signed in!', 'success');
-                onClose();
-                router.refresh(); // Rehydrate server session without full reload
             }
+            
+            router.refresh();
+            onClose();
+
         } catch (err: unknown) {
             console.error('[Auth Error]', err);
             const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
             setError(errorMessage);
+            toast(errorMessage, 'error');
         } finally {
             setIsLoading(false);
         }

@@ -1,12 +1,21 @@
 'use client';
 
 import React from 'react';
+import { type User as SupabaseUser } from '@supabase/supabase-js';
 import { ToastProvider } from '../components/ui/Toast';
+import AuthProvider from './AuthProvider';
 
-export default function Providers({ children }: { children: React.ReactNode }) {
+interface ProvidersProps {
+  children: React.ReactNode;
+  initialUser: SupabaseUser | null;
+}
+
+export default function Providers({ children, initialUser }: ProvidersProps) {
   return (
     <ToastProvider>
-      {children}
+      <AuthProvider initialUser={initialUser}>
+        {children}
+      </AuthProvider>
     </ToastProvider>
   );
 }

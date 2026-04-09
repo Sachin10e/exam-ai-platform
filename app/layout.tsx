@@ -49,8 +49,8 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${patrick.variable} antialiased overflow-hidden print:overflow-visible print:h-auto print:block`}
       >
         <GlobalShortcuts />
-        <Providers>
-          <LayoutShell user={user}>
+        <Providers initialUser={user}>
+          <LayoutShell>
             {children}
           </LayoutShell>
         </Providers>

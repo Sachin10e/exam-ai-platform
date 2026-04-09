@@ -12,10 +12,10 @@ export default function WeakTopics() {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        getWeakTopics().then(data => {
-            setWeakTopics(data);
-            setIsLoading(false);
-        });
+        getWeakTopics()
+            .then(data => setWeakTopics(data))
+            .catch(err => console.error('Failed to load weak topics:', err))
+            .finally(() => setIsLoading(false));
     }, []);
 
     const toggleExpand = (id: number) => {

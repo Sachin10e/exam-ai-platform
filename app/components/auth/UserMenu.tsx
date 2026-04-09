@@ -2,23 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { type User as SupabaseUser } from '@supabase/supabase-js';
 import { LogOut, User as UserIcon, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Suspense } from 'react';
+import { useAuth } from '@/app/providers/AuthProvider';
 const AuthModal = dynamic(() => import('./AuthModal'), { ssr: false });
 
-interface UserMenuProps {
-    initialUser: SupabaseUser | null;
-}
-
-function UserMenuContent({ initialUser }: UserMenuProps) {
-    const supabase = createClient();
+function UserMenuContent() {
+    const { user } = useAuth();
     const [openAuth, setOpenAuth] = useState(false);
     const [authMode] = useState<'login' | 'register'>('login');
-    const [user, setUser] = useState<SupabaseUser | null>(initialUser);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const searchParams = useSearchParams();
 
@@ -28,29 +23,16 @@ function UserMenuContent({ initialUser }: UserMenuProps) {
         }
     }, [searchParams, user]);
 
+    // Close auth modal when user logs in
     useEffect(() => {
-        // Fetch current session locally just to ensure synchronization
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session?.user) setUser(session.user);
-        });
-
-        // Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setUser(session?.user || null);
-            if (session?.user) {
-                setOpenAuth(false);
-            }
-        });
-
-        return () => subscription.unsubscribe();
-    }, []);
-
-
+        if (user) setOpenAuth(false);
+    }, [user]);
 
     const handleLogout = async () => {
         setIsMenuOpen(false);
+        const supabase = createClient();
         await supabase.auth.signOut();
-        window.location.reload(); // Force full reload to wipe SSR state deeply
+        window.location.reload();
     };
 
     if (user) {
@@ -126,10 +108,10 @@ function UserMenuContent({ initialUser }: UserMenuProps) {
     );
 }
 
-export default function UserMenu(props: UserMenuProps) {
+export default function UserMenu() {
     return (
         <Suspense fallback={<div className="w-10 h-10 border border-slate-800 rounded-xl animate-pulse bg-slate-800/50" />}>
-            <UserMenuContent {...props} />
+            <UserMenuContent />
         </Suspense>
     );
 }

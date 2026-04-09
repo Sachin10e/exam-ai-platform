@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { type User as SupabaseUser } from '@supabase/supabase-js';
 import Link from 'next/link';
 import { FileText, BookOpen, Calculator, BrainCircuit, Activity, Clock, ChevronRight } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
@@ -35,30 +34,32 @@ const PredictedScore = dynamic(() => import('./components/dashboard/PredictedSco
   loading: () => <div className="w-full h-[280px] bg-slate-900/40 border border-slate-800/50 rounded-2xl animate-pulse"></div>
 });
 
+import { useAuth } from './providers/AuthProvider';
+
 export default function DashboardPage() {
   const [recentSessions, setRecentSessions] = useState<StudySessionMeta[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => setUser(data.user));
-
     const fetchDashboardData = () => {
       setIsLoading(true);
-      getSessions().then(data => {
-        setRecentSessions(data.slice(0, 6)); // Grab only the 6 most recent
-        setIsLoading(false);
-      });
-      getDashboardStats().then(setStats);
+      getSessions()
+        .then(data => {
+          setRecentSessions(data.slice(0, 6));
+        })
+        .catch(err => console.error('Failed to load sessions:', err))
+        .finally(() => setIsLoading(false));
+      getDashboardStats().then(setStats).catch(err => console.error('Failed to load stats:', err));
     };
 
     fetchDashboardData();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        setUser(session?.user || null);
-        fetchDashboardData();
+    // Re-fetch data when auth state changes (login/logout)
+    const supabase = createClient();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      fetchDashboardData();
     });
 
     return () => subscription.unsubscribe();

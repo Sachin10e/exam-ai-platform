@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { getMockTestScores } from '@/app/actions/progress';
 import { TrendingUp } from 'lucide-react';
 
-export default function PredictedScore() {
+function PredictedScore() {
   const [predictedScore, setPredictedScore] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [testCount, setTestCount] = useState(0);
@@ -116,3 +116,5 @@ export default function PredictedScore() {
     </div>
   );
 }
+
+export default React.memo(PredictedScore);

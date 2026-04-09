@@ -4,15 +4,15 @@ import React, { useState, useEffect } from 'react';
 import { TrendingUp } from 'lucide-react';
 import { getExamPredictions, ExamPrediction } from '@/lib/analytics/examPredictions';
 
-export default function ExamPredictions() {
+function ExamPredictions() {
     const [predictions, setPredictions] = useState<ExamPrediction[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        getExamPredictions().then(data => {
-            setPredictions(data);
-            setIsLoading(false);
-        });
+        getExamPredictions()
+            .then(data => setPredictions(data))
+            .catch(err => console.error('Failed to load predictions:', err))
+            .finally(() => setIsLoading(false));
     }, []);
     return (
         <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 flex flex-col h-full hover:bg-slate-800/60 hover:-translate-y-1 hover:shadow-lg hover:shadow-indigo-500/10 transition-all duration-200 group">
@@ -67,3 +67,5 @@ export default function ExamPredictions() {
         </div>
     );
 }
+
+export default React.memo(ExamPredictions);

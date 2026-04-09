@@ -603,3 +603,30 @@ body.focus-mode-active main {
     background: rgba(100, 116, 139, 0.35);
   }
 }
+
+/* =========================================
+   PERFORMANCE: Reduced Motion & Mobile
+========================================= */
+
+/* Respect OS-level reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Kill heavy animations on mobile to save GPU/battery */
+@media (max-width: 767px) {
+  .animate-blob {
+    animation: none !important;
+  }
+  .hover\:-translate-y-1:hover {
+    transform: none !important;
+  }
+  .hover\:shadow-lg:hover {
+    box-shadow: none !important;
+  }
+}
